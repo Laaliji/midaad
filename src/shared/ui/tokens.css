@@ -1,0 +1,104 @@
+/*
+ * Midaad design tokens.
+ * Brand palette (user-supplied):
+ *   Dark Walnut #582f0e · Saddle Brown #7f4f24 · Toffee #936639 · Camel #a68a64 · Khaki #b6ad90
+ *   Dry Sage #c2c5aa · Sage #a4ac86 · Dusty Olive #656d4a · Ebony #414833 · Charcoal Brown #333d29
+ * Paper and ink neutrals are derived from it. Every text/background pair below meets WCAG AA:
+ * body text is ≥ 9:1 and muted text ≥ 4.5:1. Camel, Khaki and Sage are too light for text on paper
+ * (≈3:1), so they appear only as fills, rules and decoration.
+ */
+
+:root,
+:host {
+  --mw-walnut: #582f0e;
+  --mw-saddle: #7f4f24;
+  --mw-toffee: #936639;
+  --mw-camel: #a68a64;
+  --mw-khaki: #b6ad90;
+  --mw-drysage: #c2c5aa;
+  --mw-sage: #a4ac86;
+  --mw-olive: #656d4a;
+  --mw-ebony: #414833;
+  --mw-charcoal: #333d29;
+
+  --mw-radius-sm: 8px;
+  --mw-radius: 12px;
+  --mw-radius-lg: 18px;
+  --mw-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --mw-dur: 180ms;
+
+  --mw-font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, 'Midaad Naskh', sans-serif;
+  --mw-font-display: 'Midaad Literata', Georgia, 'Midaad Naskh', serif;
+}
+
+/* Paper: light */
+[data-theme='light'] {
+  --mw-bg: #faf6ee;
+  --mw-surface: #fffdf8;
+  --mw-surface-2: #f2ecdf;
+  --mw-surface-3: #e9e1cf;
+  --mw-text: #333d29;
+  --mw-text-strong: #2a321f;
+  --mw-text-muted: #656d4a;
+  --mw-accent: #7f4f24;
+  --mw-accent-strong: #582f0e;
+  --mw-accent-contrast: #fffdf8;
+  --mw-accent-soft: rgb(166 138 100 / 0.18);
+  --mw-rule: #e3dac6;
+  --mw-rule-strong: #cfc3a6;
+  --mw-progress: #936639;
+  --mw-focus: #7f4f24;
+  --mw-selection: rgb(166 138 100 / 0.32);
+  --mw-shadow: 0 1px 2px rgb(51 61 41 / 0.06), 0 8px 28px rgb(51 61 41 / 0.12);
+  --mw-mark-ink: #936639;
+  --mw-mark-page: #656d4a;
+  color-scheme: light;
+}
+
+/* Sepia: warm paper, walnut ink */
+[data-theme='sepia'] {
+  --mw-bg: #f3ead6;
+  --mw-surface: #f8f1e1;
+  --mw-surface-2: #ebe0c7;
+  --mw-surface-3: #e0d3b5;
+  --mw-text: #582f0e;
+  --mw-text-strong: #45240a;
+  --mw-text-muted: #5c4a2e;
+  --mw-accent: #7f4f24;
+  --mw-accent-strong: #582f0e;
+  --mw-accent-contrast: #f8f1e1;
+  --mw-accent-soft: rgb(147 102 57 / 0.16);
+  --mw-rule: #ddd0b2;
+  --mw-rule-strong: #c9b892;
+  --mw-progress: #7f4f24;
+  --mw-focus: #7f4f24;
+  --mw-selection: rgb(147 102 57 / 0.28);
+  --mw-shadow: 0 1px 2px rgb(88 47 14 / 0.08), 0 8px 28px rgb(88 47 14 / 0.14);
+  --mw-mark-ink: #7f4f24;
+  --mw-mark-page: #656d4a;
+  color-scheme: light;
+}
+
+/* Ink: dark, olive-black, never pure black (less halation for long reading) */
+[data-theme='dark'] {
+  --mw-bg: #1c2016;
+  --mw-surface: #25291e;
+  --mw-surface-2: #2e3326;
+  --mw-surface-3: #383e2f;
+  --mw-text: #d9d6c0;
+  --mw-text-strong: #ece9d6;
+  --mw-text-muted: #a4ac86;
+  --mw-accent: #d4ad80;
+  --mw-accent-strong: #e6c49c;
+  --mw-accent-contrast: #1c2016;
+  --mw-accent-soft: rgb(212 173 128 / 0.14);
+  --mw-rule: #3a4030;
+  --mw-rule-strong: #4c5340;
+  --mw-progress: #c49a6c;
+  --mw-focus: #d4ad80;
+  --mw-selection: rgb(196 154 108 / 0.3);
+  --mw-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 10px 32px rgb(0 0 0 / 0.45);
+  --mw-mark-ink: #c98b4f;
+  --mw-mark-page: #c2c5aa;
+  color-scheme: dark;
+}

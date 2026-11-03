@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="ink" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0" stop-color="#cf9358"/>
+      <stop offset="1" stop-color="#8a5a2c"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="30" fill="#333d29"/>
+  <!-- pages -->
+  <path d="M14 92 C 32 80, 50 81, 64 98 C 78 81, 96 80, 114 92" fill="none" stroke="#c2c5aa" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M25 79 C 41 69, 54 72, 64 86 C 74 72, 87 69, 103 79" fill="none" stroke="#a68a64" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- meem: teardrop head + tapered tail flowing into the spine -->
+  <path fill="url(#ink)" fill-rule="evenodd" d="
+    M56 42
+    C 58 28, 78 22, 89 30
+    C 97 36, 94 50, 82 54
+    C 74 57, 66 55, 61 52
+    C 59 64, 60 78, 65 90
+    C 53 80, 49 64, 56 42 Z
+    M68 44
+    C 71 37, 80 35, 84 39
+    C 86 43, 81 47, 74 47
+    C 71 47, 69 46, 68 44 Z"/>
+  <path d="M36 42 l2 5.4 5.4 2 -5.4 2 -2 5.4 -2 -5.4 -5.4 -2 5.4 -2z" fill="#c2c5aa"/>
+</svg>

@@ -1,0 +1,260 @@
+/*
+ * Article typography: shared by the reader view and the live preview in Options.
+ * Driven by variables that readerStyleVars() sets from the user's settings:
+ *   --mr-font  --mr-size  --mr-lh  --mr-measure
+ * Uses logical properties throughout, so RTL (Arabic) articles mirror correctly.
+ */
+
+.mw-article {
+  --mr-script-scale: 1;
+  max-width: var(--mr-measure, 66ch);
+  margin-inline: auto;
+  font-family: var(--mr-font);
+  font-size: calc(var(--mr-size, 19px) * var(--mr-script-scale));
+  line-height: var(--mr-lh, 1.65);
+  color: var(--mw-text);
+  text-align: start;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  font-kerning: normal;
+  font-optical-sizing: auto;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Naskh faces have smaller x-heights than Latin faces at the same px size, and the tall
+   ascenders and descenders need more leading. Hyphenation and letter-spacing are wrong for Arabic. */
+.mw-article:is([lang|='ar'], [lang|='fa'], [lang|='ur']),
+.mw-article [lang|='ar'] {
+  --mr-script-scale: 1.12;
+  line-height: calc(var(--mr-lh, 1.65) + 0.2);
+  hyphens: manual;
+  letter-spacing: 0 !important;
+}
+
+.mw-article ::selection {
+  background: var(--mw-selection);
+}
+
+/* ---------------------------------------- header */
+.mw-article__kicker {
+  margin: 0 0 14px;
+  font-family: var(--mw-font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mw-accent);
+}
+.mw-article__kicker:is(:lang(ar), [dir='rtl']) {
+  letter-spacing: 0;
+  text-transform: none;
+}
+.mw-article__title {
+  margin: 0 0 16px;
+  font-size: 2.05em;
+  line-height: 1.18;
+  font-weight: 650;
+  letter-spacing: -0.012em;
+  color: var(--mw-text-strong);
+  text-wrap: balance;
+}
+.mw-article:is([lang|='ar']) .mw-article__title {
+  line-height: 1.45;
+  letter-spacing: 0;
+}
+.mw-article__byline {
+  margin: 0 0 6px;
+  font-size: 0.9em;
+  font-style: italic;
+  color: var(--mw-text-muted);
+}
+.mw-article:is([lang|='ar']) .mw-article__byline {
+  font-style: normal;
+}
+.mw-article__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin: 0;
+  font-family: var(--mw-font-ui);
+  font-size: 13px;
+  color: var(--mw-text-muted);
+}
+.mw-article__meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.mw-article__meta span + span::before {
+  content: '';
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--mw-camel);
+  margin-inline-end: 8px;
+}
+
+/* Ornamental rule, the logo's "— Midaad —" lines */
+.mw-article__rule {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 28px 0 32px;
+  color: var(--mw-camel);
+}
+.mw-article__rule::before,
+.mw-article__rule::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to var(--mr-rule-dir, right), transparent, var(--mw-rule-strong));
+}
+.mw-article__rule::after {
+  background: linear-gradient(to var(--mr-rule-dir, right), var(--mw-rule-strong), transparent);
+}
+
+/* ---------------------------------------- body */
+.mw-article__body > :first-child {
+  margin-top: 0;
+}
+.mw-article__body :is(p, ul, ol, dl, figure, blockquote, pre, table, .mw-table) {
+  margin-block: 0 1.15em;
+}
+.mw-article__body :is(h1, h2, h3, h4, h5, h6) {
+  margin: 1.8em 0 0.55em;
+  line-height: 1.28;
+  font-weight: 650;
+  color: var(--mw-text-strong);
+  text-wrap: balance;
+}
+.mw-article__body h1 { font-size: 1.6em; }
+.mw-article__body h2 { font-size: 1.38em; }
+.mw-article__body h3 { font-size: 1.18em; }
+.mw-article__body :is(h4, h5, h6) { font-size: 1em; }
+
+.mw-article__body a {
+  color: var(--mw-accent);
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in srgb, var(--mw-accent) 40%, transparent);
+  text-underline-offset: 0.18em;
+  transition: text-decoration-color var(--mw-dur, 180ms);
+}
+.mw-article__body a:hover {
+  text-decoration-color: currentColor;
+}
+.mw-article__body a:focus-visible {
+  outline: 2px solid var(--mw-focus);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.mw-article__body :is(ul, ol) {
+  padding-inline-start: 1.4em;
+}
+.mw-article__body li + li {
+  margin-top: 0.35em;
+}
+.mw-article__body li::marker {
+  color: var(--mw-camel);
+}
+
+.mw-article__body blockquote {
+  margin-inline: 0;
+  padding: 0.2em 0 0.2em 1.1em;
+  padding-inline-start: 1.1em;
+  padding-inline-end: 0;
+  border-inline-start: 3px solid var(--mw-camel);
+  color: var(--mw-text-muted);
+}
+.mw-article__body blockquote:not(:lang(ar)) {
+  font-style: italic;
+}
+
+.mw-article__body img,
+.mw-article__body video,
+.mw-article__body svg,
+.mw-article__body picture {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin-inline: auto;
+  border-radius: 8px;
+}
+.mw-article__body figure {
+  margin-inline: 0;
+}
+.mw-article__body figcaption {
+  margin-top: 0.6em;
+  font-family: var(--mw-font-ui);
+  font-size: 0.72em;
+  line-height: 1.5;
+  color: var(--mw-text-muted);
+  text-align: center;
+}
+
+.mw-article__body :is(code, kbd, samp) {
+  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, monospace;
+  font-size: 0.86em;
+  padding: 0.1em 0.35em;
+  border-radius: 5px;
+  background: var(--mw-surface-2);
+}
+.mw-article__body pre {
+  direction: ltr;
+  text-align: left;
+  overflow-x: auto;
+  padding: 1em 1.1em;
+  border-radius: 10px;
+  background: var(--mw-surface-2);
+  border: 1px solid var(--mw-rule);
+  font-size: 0.82em;
+  line-height: 1.55;
+  hyphens: none;
+}
+.mw-article__body pre code {
+  padding: 0;
+  background: none;
+  font-size: inherit;
+}
+
+.mw-article__body .mw-table {
+  overflow-x: auto;
+}
+.mw-article__body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85em;
+  line-height: 1.5;
+}
+.mw-article__body :is(th, td) {
+  padding: 0.5em 0.7em;
+  border-bottom: 1px solid var(--mw-rule);
+  text-align: start;
+  vertical-align: top;
+}
+.mw-article__body th {
+  font-weight: 650;
+  color: var(--mw-text-strong);
+  border-bottom-color: var(--mw-rule-strong);
+}
+
+.mw-article__body hr {
+  border: 0;
+  height: 1px;
+  margin: 2em auto;
+  width: 40%;
+  background: var(--mw-rule-strong);
+}
+
+.mw-article__body sup,
+.mw-article__body sub {
+  line-height: 0;
+}
+
+/* Mirror the ornamental rule's fade direction in RTL articles */
+.mw-article[dir='rtl'] {
+  --mr-rule-dir: left;
+}

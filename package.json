@@ -1,0 +1,39 @@
+{
+  "name": "midaad",
+  "version": "0.1.0",
+  "scripts": {
+    "assets": "node scripts/copy-fonts.mjs && node scripts/build-icons.mjs",
+    "dev": "node scripts/copy-fonts.mjs && node scripts/dev.mjs",
+    "build": "node scripts/copy-fonts.mjs && npm run typecheck && node scripts/build.mjs",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "author": "",
+  "license": "UNLICENSED",
+  "description": "Midaad: a calm reading companion. Reader mode, highlights and notes, all stored locally.",
+  "dependencies": {
+    "@mozilla/readability": "^0.6.0",
+    "dompurify": "^3.4.17",
+    "idb": "^8.0.4",
+    "preact": "^11.1.1"
+  },
+  "devDependencies": {
+    "@fontsource-variable/literata": "^5.3.0",
+    "@fontsource-variable/noto-naskh-arabic": "^5.3.0",
+    "@fontsource-variable/source-sans-3": "^5.3.1",
+    "@fontsource/amiri": "^5.3.0",
+    "@fontsource/atkinson-hyperlegible": "^5.3.0",
+    "@fontsource/opendyslexic": "^5.3.0",
+    "@preact/preset-vite": "^2.10.6",
+    "@resvg/resvg-js": "^2.6.2",
+    "@types/chrome": "^0.3.7",
+    "@types/node": "^26.6.6",
+    "jsdom": "^26.1.0",
+    "typescript": "^7.0.2",
+    "vite": "^6.4.5",
+    "vitest": "^4.1.12"
+  },
+  "private": true,
+  "type": "module"
+}

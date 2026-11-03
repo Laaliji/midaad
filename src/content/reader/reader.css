@@ -1,0 +1,305 @@
+/* Reader overlay layout and toolbar. Runs inside a closed shadow root, so page CSS can't leak in. */
+
+:host {
+  all: initial;
+}
+
+.mr {
+  position: fixed;
+  inset: 0;
+  background: var(--mw-bg);
+  color: var(--mw-text);
+  font-family: var(--mw-font-ui);
+  font-size: 15px;
+  line-height: 1.4;
+  /* `all: initial` on the host does not reset direction, so an RTL page would mirror our chrome. */
+  direction: ltr;
+  unicode-bidi: isolate;
+  -webkit-font-smoothing: antialiased;
+  animation: mr-in 220ms var(--mw-ease) both;
+  transition: background-color 260ms var(--mw-ease), color 260ms var(--mw-ease);
+}
+.mr *,
+.mr *::before,
+.mr *::after {
+  box-sizing: border-box;
+}
+@keyframes mr-in {
+  from {
+    opacity: 0;
+  }
+}
+.mr button {
+  font: inherit;
+}
+
+/* ---------------------------------------- progress */
+.mr-progress {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  z-index: 4;
+  background: transparent;
+}
+.mr-progress__bar {
+  height: 100%;
+  background: var(--mw-progress);
+  transform-origin: left center;
+  will-change: transform;
+  transition: transform 80ms linear;
+}
+.mr-progress[dir='rtl'] .mr-progress__bar {
+  transform-origin: right center;
+}
+
+/* ---------------------------------------- toolbar */
+.mr-bar {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  height: 56px;
+  padding: 3px 14px 0 18px;
+  background: color-mix(in srgb, var(--mw-bg) 86%, transparent);
+  backdrop-filter: saturate(1.4) blur(12px);
+  border-bottom: 1px solid transparent;
+  transition: transform 240ms var(--mw-ease), border-color 240ms var(--mw-ease), background-color 260ms var(--mw-ease);
+}
+.mr-bar.is-scrolled {
+  border-bottom-color: var(--mw-rule);
+}
+.mr-bar.is-hidden {
+  transform: translateY(-100%);
+}
+.mr-bar:focus-within {
+  transform: none;
+}
+.mr-bar__start {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.mr-bar__site {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mw-text-muted);
+}
+.mr-bar__center {
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--mw-text-muted);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--mw-surface-2);
+}
+.mr-bar__end {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.mr-btn {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--mw-text);
+  cursor: pointer;
+  transition: background-color var(--mw-dur) var(--mw-ease), color var(--mw-dur) var(--mw-ease);
+}
+.mr-btn:hover,
+.mr-btn.is-active {
+  background: var(--mw-surface-2);
+  color: var(--mw-text-strong);
+}
+.mr-btn:focus-visible {
+  outline: 2px solid var(--mw-focus);
+  outline-offset: 1px;
+}
+.mr-aa {
+  display: inline-flex;
+  align-items: baseline;
+  font-family: var(--mw-font-display);
+  font-weight: 600;
+  line-height: 1;
+}
+.mr-aa span:first-child {
+  font-size: 19px;
+}
+.mr-aa span:last-child {
+  font-size: 14px;
+}
+
+/* ---------------------------------------- page */
+.mr-scroller {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-color: var(--mw-rule-strong) transparent;
+  outline: none;
+}
+.mr-page {
+  padding: 104px 28px 72px;
+}
+@media (max-width: 600px) {
+  .mr-page {
+    padding: 84px 18px 56px;
+  }
+  .mr-bar__center {
+    display: none;
+  }
+  .mr-bar {
+    grid-template-columns: 1fr auto;
+  }
+}
+
+.mr-end {
+  margin-top: 56px;
+  text-align: center;
+}
+.mr-end .mw-article__rule {
+  margin-bottom: 24px;
+}
+.mr-end__btn {
+  padding: 10px 18px;
+  border: 1px solid var(--mw-rule-strong);
+  border-radius: 999px;
+  background: var(--mw-surface);
+  color: var(--mw-text);
+  font-family: var(--mw-font-ui);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--mw-dur) var(--mw-ease), border-color var(--mw-dur) var(--mw-ease);
+}
+.mr-end__btn:hover {
+  background: var(--mw-surface-2);
+  border-color: var(--mw-accent);
+}
+.mr-end__btn:focus-visible {
+  outline: 2px solid var(--mw-focus);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------- settings panel */
+.mr-panel {
+  position: absolute;
+  z-index: 5;
+  top: 62px;
+  right: 14px;
+  width: 344px;
+  max-height: calc(100% - 76px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 18px 18px 14px;
+  border-radius: var(--mw-radius-lg);
+  background: var(--mw-surface);
+  border: 1px solid var(--mw-rule);
+  box-shadow: var(--mw-shadow);
+  scrollbar-width: thin;
+  animation: mr-pop 180ms var(--mw-ease) both;
+  transform-origin: top right;
+}
+@keyframes mr-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+.mr-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.mr-panel__title {
+  margin: 0;
+  font-family: var(--mw-font-display);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--mw-text-strong);
+}
+.mr-link {
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--mw-accent);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.mr-link:hover {
+  background: var(--mw-accent-soft);
+}
+.mr-link:focus-visible {
+  outline: 2px solid var(--mw-focus);
+}
+.mr-panel__more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  margin-top: 18px;
+  padding: 10px;
+  border: 0;
+  border-top: 1px solid var(--mw-rule);
+  background: none;
+  color: var(--mw-text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.mr-panel__more:hover {
+  color: var(--mw-accent);
+}
+.mr-panel__more:focus-visible {
+  outline: 2px solid var(--mw-focus);
+  border-radius: 8px;
+}
+
+/* Bottom sheet on narrow windows */
+@media (max-width: 520px) {
+  .mr-panel {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-height: 78%;
+    border-radius: var(--mw-radius-lg) var(--mw-radius-lg) 0 0;
+    transform-origin: bottom center;
+    animation-name: mr-sheet;
+  }
+  @keyframes mr-sheet {
+    from {
+      transform: translateY(24px);
+      opacity: 0;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mr,
+  .mr-panel {
+    animation: none;
+  }
+  .mr-bar,
+  .mr-progress__bar {
+    transition: none;
+  }
+}

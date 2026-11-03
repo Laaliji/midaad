@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "types": ["node", "chrome"]
+  },
+  "include": ["manifest.config.ts", "vite.config.ts", "vite.content.config.ts", "vitest.config.ts"]
+}
