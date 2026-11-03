@@ -394,3 +394,100 @@ code {
     animation: none;
   }
 }
+
+/* ---------------------------------------- highlights */
+.op-stack {
+  display: grid;
+  gap: 18px;
+  max-width: 760px;
+}
+.op-small {
+  margin: 0 0 14px;
+  font-size: 13.5px;
+}
+.op-rule {
+  margin: 20px 0;
+  border: 0;
+  border-top: 1px solid var(--mw-rule);
+}
+.op-colors {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.op-colors legend {
+  padding: 0;
+  margin-bottom: 4px;
+  font-family: var(--mw-font-display);
+  font-weight: 600;
+  color: var(--mw-text-strong);
+}
+.op-colors__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.op-color {
+  position: relative;
+  cursor: pointer;
+}
+.op-color input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.op-color__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 12px 7px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--mw-rule-strong);
+  background: var(--mw-surface);
+  transition: border-color var(--mw-dur) var(--mw-ease), box-shadow var(--mw-dur) var(--mw-ease);
+}
+.op-color:hover .op-color__chip {
+  border-color: var(--mw-text-muted);
+}
+.op-color input:checked + .op-color__chip {
+  border-color: var(--mw-accent);
+  box-shadow: 0 0 0 1px var(--mw-accent);
+}
+.op-color input:focus-visible + .op-color__chip {
+  outline: 2px solid var(--mw-focus);
+  outline-offset: 2px;
+}
+.op-color__dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.12);
+}
+.op-color__sample {
+  padding: 0 3px;
+  border-radius: 3px;
+  font-weight: 600;
+  color: var(--mw-text-strong);
+}
+.op-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 0;
+  font-size: 13.5px;
+  color: var(--mw-text-muted);
+}
+.op-status .op-dot {
+  background: var(--mw-rule-strong);
+}
+.op-status[data-on] .op-dot {
+  background: var(--mw-olive);
+}
+
+.op-nav__library {
+  margin: 14px 0 0;
+  border: 1px solid var(--mw-rule-strong);
+  color: var(--mw-text-strong);
+}

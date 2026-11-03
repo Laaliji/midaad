@@ -7,13 +7,23 @@
  * Adding a message = adding one entry to a map; the compiler checks payloads and responses everywhere.
  */
 
+import type { Highlight, HighlightPatch, PageMeta } from './highlights';
+
 export type BackgroundApi = {
   'ui/openOptions': { req: { section?: string }; res: void };
+  'ui/openLibrary': { req: void; res: void };
+  'highlights/forPage': { req: { url: string }; res: Highlight[] };
+  'highlights/create': { req: { highlight: Highlight; page: PageMeta }; res: Highlight };
+  'highlights/update': { req: { id: string; patch: HighlightPatch }; res: Highlight };
+  'highlights/delete': { req: { id: string }; res: void };
+  'highlights/stats': { req: void; res: { highlights: number; notes: number; pages: number } };
 };
 
 export type TabApi = {
   'content/ping': { req: void; res: 'pong' };
   'reader/toggle': { req: void; res: { open: boolean } };
+  /** Highlight the current selection (keyboard shortcut and right-click menu). */
+  'highlights/fromSelection': { req: void; res: { created: boolean } };
 };
 
 type Api = Record<string, { req: unknown; res: unknown }>;

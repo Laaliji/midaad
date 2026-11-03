@@ -18,9 +18,10 @@ export function AboutSection() {
           <ul class="op-checks">
             <li>No accounts, no servers, no analytics. Midaad never sends data over the network.</li>
             <li>Settings live in this browser’s extension storage, not in Chrome Sync.</li>
+            <li>Highlights and notes are kept in the extension’s own database (IndexedDB) on this device.</li>
             <li>
-              Midaad only runs on a page after you click its button or press its shortcut (the <code>activeTab</code>{' '}
-              permission).
+              Midaad only runs on a page after you click its button, press a shortcut or use its right-click menu (the{' '}
+              <code>activeTab</code> permission), unless you turn on automatic restore under Highlights.
             </li>
             <li>Fonts are bundled with the extension, so no font services are contacted.</li>
           </ul>

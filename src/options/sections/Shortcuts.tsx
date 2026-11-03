@@ -34,13 +34,17 @@ export function ShortcutsSection() {
               </li>
             ))}
           <li class="op-list__row">
-            <span>Close reader view or the settings panel</span>
+            <span>Highlight without the keyboard</span>
+            <span class="op-muted">Right-click → Highlight with Midaad</span>
+          </li>
+          <li class="op-list__row">
+            <span>Close the highlight toolbar, a note, the settings panel or reader view</span>
             <Keys combo="Esc" />
           </li>
         </ul>
       </div>
       <p class="op-hint">
-        If <kbd class="op-kbd">Alt</kbd>+<kbd class="op-kbd">R</kbd> shows as “Not set”, another extension already uses it;
+        If a shortcut shows as “Not set”, another extension already uses it;
         choose a different one with <strong>Change shortcuts</strong>.
       </p>
     </section>
