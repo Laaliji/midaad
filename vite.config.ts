@@ -17,7 +17,7 @@ function manifestPlugin(): Plugin {
 }
 
 /**
- * Build #1: extension pages (options, later side panel) + background service worker (ES module).
+ * Build #1: extension pages (options, library, later side panel) + background service worker (ES module).
  * The content script is built separately (vite.content.config.ts) because it must be a classic IIFE.
  */
 export default defineConfig({
@@ -34,6 +34,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         options: resolve(__dirname, 'src/options/index.html'),
+        library: resolve(__dirname, 'src/library/index.html'),
         background: resolve(__dirname, 'src/background/index.ts'),
       },
       output: {

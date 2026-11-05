@@ -13,24 +13,68 @@ interface Props {
   onResetSettings: () => void;
   onClose: () => void;
   onOpenOptions: () => void;
+  /** Called once the article body is in the DOM, with a container for highlight UI. */
+  onArticleMount?: (body: HTMLDivElement, layer: HTMLDivElement) => void;
+  /** Label of the button at the end of the article. */
+  closeLabel?: string;
+  /** Reading position to restore, 0..1. */
+  initialProgress?: number;
+  /** Reports the reading position while scrolling (throttled). */
+  onProgress?: (progress: number) => void;
+}
+
+interface TocEntry {
+  el: HTMLElement;
+  text: string;
+  level: number;
 }
 
 const prefersReducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-export function ReaderApp({ article, settings, onSettingsChange, onResetSettings, onClose, onOpenOptions }: Props) {
+export function ReaderApp({
+  article,
+  settings,
+  onSettingsChange,
+  onResetSettings,
+  onClose,
+  onOpenOptions,
+  onArticleMount,
+  closeLabel = 'Back to the original page',
+  initialProgress = 0,
+  onProgress,
+}: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const typoBtnRef = useRef<HTMLButtonElement>(null);
+  const layerRef = useRef<HTMLDivElement>(null);
+  const tocRef = useRef<HTMLElement>(null);
+  const tocBtnRef = useRef<HTMLButtonElement>(null);
+  const progressCb = useRef(onProgress);
+  progressCb.current = onProgress;
 
   const [progress, setProgress] = useState(0);
   const [barHidden, setBarHidden] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [tocOpen, setTocOpen] = useState(false);
+  const [toc, setToc] = useState<TocEntry[]>([]);
 
   // Mount the sanitized article body once.
   useLayoutEffect(() => {
     bodyRef.current?.replaceChildren(article.content.cloneNode(true));
+    if (bodyRef.current && layerRef.current) onArticleMount?.(bodyRef.current, layerRef.current);
+    setToc(buildToc(bodyRef.current));
+  }, [article]);
+
+  // Return to where you left off (documents from the Library).
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el || initialProgress <= 0.002) return;
+    const frame = requestAnimationFrame(() => {
+      el.scrollTop = initialProgress * (el.scrollHeight - el.clientHeight);
+    });
+    return () => cancelAnimationFrame(frame);
   }, [article]);
 
   // Focus the scroller so Space, PageDown and the arrow keys scroll the article right away.
@@ -44,11 +88,15 @@ export function ReaderApp({ article, settings, onSettingsChange, onResetSettings
     if (!el) return;
     let lastY = 0;
     let frame = 0;
+    let reportTimer = 0;
     const update = () => {
       frame = 0;
       const max = el.scrollHeight - el.clientHeight;
       const y = el.scrollTop;
-      setProgress(max > 0 ? Math.min(1, Math.max(0, y / max)) : 1);
+      const p = max > 0 ? Math.min(1, Math.max(0, y / max)) : 1;
+      setProgress(p);
+      clearTimeout(reportTimer);
+      reportTimer = window.setTimeout(() => progressCb.current?.(p), 600);
       setScrolled(y > 8);
       if (Math.abs(y - lastY) > 6) {
         setBarHidden(y > lastY && y > 120);
@@ -67,6 +115,7 @@ export function ReaderApp({ article, settings, onSettingsChange, onResetSettings
       el.removeEventListener('scroll', onScroll);
       ro.disconnect();
       if (frame) cancelAnimationFrame(frame);
+      clearTimeout(reportTimer);
     };
   }, []);
 
@@ -88,10 +137,35 @@ export function ReaderApp({ article, settings, onSettingsChange, onResetSettings
     if (restoreFocus) typoBtnRef.current?.focus();
   }
 
+  // Contents panel: same focus and outside-click behaviour as the settings panel.
+  useEffect(() => {
+    if (!tocOpen) return;
+    tocRef.current?.querySelector<HTMLElement>('button')?.focus();
+    const onPointerDown = (e: PointerEvent) => {
+      const path = e.composedPath();
+      if (tocRef.current && !path.includes(tocRef.current) && !path.includes(tocBtnRef.current!)) setTocOpen(false);
+    };
+    const root = tocRef.current?.getRootNode() as ShadowRoot | undefined;
+    root?.addEventListener('pointerdown', onPointerDown as EventListener);
+    return () => root?.removeEventListener('pointerdown', onPointerDown as EventListener);
+  }, [tocOpen]);
+
+  function closeToc(restoreFocus = true) {
+    setTocOpen(false);
+    if (restoreFocus) tocBtnRef.current?.focus();
+  }
+
+  function goTo(entry: TocEntry) {
+    setTocOpen(false);
+    entry.el.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+    scrollerRef.current?.focus({ preventScroll: true });
+  }
+
   function onKeyDown(e: KeyboardEvent) {
     if (e.key === 'Escape') {
       e.preventDefault();
       if (panelOpen) closePanel();
+      else if (tocOpen) closeToc();
       else onClose();
     }
   }
@@ -112,7 +186,7 @@ export function ReaderApp({ article, settings, onSettingsChange, onResetSettings
   const minutesLeft = Math.ceil(article.minutes * (1 - progress));
   const vars = useMemo(() => readerStyleVars(settings), [settings]);
   const published = useMemo(() => formatDate(article.publishedTime, article.lang), [article]);
-  const showBar = !barHidden || panelOpen;
+  const showBar = !barHidden || panelOpen || tocOpen;
   const labels = articleLabels(article.lang);
 
   return (
@@ -147,6 +221,26 @@ export function ReaderApp({ article, settings, onSettingsChange, onResetSettings
           {progress >= 0.995 ? 'Finished' : `${minutesLeft} min left`}
         </div>
         <div class="mr-bar__end">
+          {toc.length >= 3 && (
+            <button
+              ref={tocBtnRef}
+              type="button"
+              class={`mr-btn${tocOpen ? ' is-active' : ''}`}
+              aria-expanded={tocOpen}
+              aria-controls="mr-toc"
+              aria-label="Contents"
+              title="Contents"
+              onClick={() => {
+                if (tocOpen) return closeToc();
+                setPanelOpen(false);
+                setTocOpen(true);
+              }}
+            >
+              <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+            </button>
+          )}
           <button
             ref={typoBtnRef}
             type="button"
@@ -155,7 +249,11 @@ export function ReaderApp({ article, settings, onSettingsChange, onResetSettings
             aria-controls="mr-panel"
             aria-label="Reading settings"
             title="Reading settings"
-            onClick={() => (panelOpen ? closePanel() : setPanelOpen(true))}
+            onClick={() => {
+              if (panelOpen) return closePanel();
+              setTocOpen(false);
+              setPanelOpen(true);
+            }}
           >
             <span class="mr-aa" aria-hidden="true">
               <span>A</span>
@@ -192,12 +290,31 @@ export function ReaderApp({ article, settings, onSettingsChange, onResetSettings
                 <MidaadMark size={20} />
               </div>
               <button type="button" class="mr-end__btn" onClick={onClose}>
-                Back to the original page
+                {closeLabel}
               </button>
             </footer>
           </article>
         </main>
       </div>
+
+      <div class="mh-layer" ref={layerRef} data-midaad-ui="" />
+
+      {tocOpen && (
+        <nav class="mr-panel mr-panel--toc" id="mr-toc" ref={tocRef} aria-label="Contents">
+          <div class="mr-panel__head">
+            <h2 class="mr-panel__title">Contents</h2>
+          </div>
+          <ol class="mr-toc" dir={article.dir} lang={article.lang}>
+            {toc.map((t, i) => (
+              <li key={i} class={`mr-toc__item mr-toc__item--${t.level}`}>
+                <button type="button" class="mr-toc__link" dir="auto" onClick={() => goTo(t)}>
+                  {t.text}
+                </button>
+              </li>
+            ))}
+          </ol>
+        </nav>
+      )}
 
       {panelOpen && (
         <div class="mr-panel" id="mr-panel" ref={panelRef} role="dialog" aria-label="Reading settings">
@@ -218,6 +335,16 @@ export function ReaderApp({ article, settings, onSettingsChange, onResetSettings
       )}
     </div>
   );
+}
+
+/** Headings of the two top levels used in the article, for the Contents panel. */
+function buildToc(body: HTMLElement | null): TocEntry[] {
+  if (!body) return [];
+  const all = Array.from(body.querySelectorAll<HTMLElement>('h1, h2, h3, h4'))
+    .map((el) => ({ el, text: (el.textContent ?? '').trim().slice(0, 140), level: Number(el.tagName[1]) }))
+    .filter((t) => t.text);
+  const levels = [...new Set(all.map((t) => t.level))].sort().slice(0, 2);
+  return all.filter((t) => levels.includes(t.level)).map((t) => ({ ...t, level: levels.indexOf(t.level) + 1 }));
 }
 
 function formatDate(iso: string | null, lang?: string): string | null {

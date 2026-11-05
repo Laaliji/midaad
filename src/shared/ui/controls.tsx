@@ -234,3 +234,40 @@ function nearest(v: number, opts: readonly { value: number }[]): number {
   for (const o of opts) if (Math.abs(o.value - v) < Math.abs(best - v)) best = o.value;
   return best;
 }
+
+/* ------------------------------------------------------------------ Switch */
+
+interface SwitchProps {
+  label: string;
+  description?: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}
+
+/** A checkbox with role="switch", so it is announced as on/off. */
+export function Switch({ label, description, checked, onChange }: SwitchProps) {
+  const id = nextId('sw');
+  return (
+    <div class="mw-switch-row">
+      <div class="mw-switch-row__text">
+        <label class="mw-switch-row__label" for={id}>
+          {label}
+        </label>
+        {description && (
+          <p class="mw-switch-row__desc" id={`${id}-d`}>
+            {description}
+          </p>
+        )}
+      </div>
+      <input
+        id={id}
+        type="checkbox"
+        role="switch"
+        class="mw-switch"
+        checked={checked}
+        aria-describedby={description ? `${id}-d` : undefined}
+        onChange={(e) => onChange((e.currentTarget as HTMLInputElement).checked)}
+      />
+    </div>
+  );
+}

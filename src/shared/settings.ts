@@ -4,6 +4,8 @@
  * restyles itself instantly when you change something in the options page.
  */
 
+import { isHighlightColor, type HighlightColor } from './highlights';
+
 export type ReaderTheme = 'light' | 'sepia' | 'dark';
 export type LatinFontId = 'literata' | 'source-sans' | 'atkinson' | 'opendyslexic' | 'system';
 export type ArabicFontId = 'noto-naskh' | 'amiri' | 'system';
@@ -20,9 +22,17 @@ export interface ReaderSettings {
   contentWidth: number;
 }
 
+export interface HighlightSettings {
+  /** Colour used by the shortcut, the right-click menu and "Add note". */
+  defaultColor: HighlightColor;
+  /** Show the small toolbar when you select text on a page where Midaad is active. */
+  selectionToolbar: boolean;
+}
+
 export interface Settings {
   version: 1;
   reader: ReaderSettings;
+  highlights: HighlightSettings;
 }
 
 export const READER_LIMITS = {
@@ -52,6 +62,10 @@ export const DEFAULT_SETTINGS: Settings = {
     lineHeight: 1.65,
     contentWidth: 66,
   },
+  highlights: {
+    defaultColor: 'honey',
+    selectionToolbar: true,
+  },
 };
 
 const KEY = 'settings';
@@ -63,7 +77,10 @@ export function normalizeSettings(raw: unknown): Settings {
   reader.fontSize = clamp(Math.round(Number(reader.fontSize)) || 19, READER_LIMITS.fontSize.min, READER_LIMITS.fontSize.max);
   reader.lineHeight = clamp(Number(reader.lineHeight) || 1.65, 1.2, 2.6);
   reader.contentWidth = clamp(Number(reader.contentWidth) || 66, 40, 100);
-  return { version: 1, reader };
+  const hl = { ...DEFAULT_SETTINGS.highlights, ...(stored.highlights ?? {}) };
+  if (!isHighlightColor(hl.defaultColor)) hl.defaultColor = DEFAULT_SETTINGS.highlights.defaultColor;
+  hl.selectionToolbar = hl.selectionToolbar !== false;
+  return { version: 1, reader, highlights: hl };
 }
 
 export async function getSettings(): Promise<Settings> {
@@ -78,9 +95,17 @@ export async function updateReaderSettings(patch: Partial<ReaderSettings>): Prom
   return next;
 }
 
+export async function updateHighlightSettings(patch: Partial<HighlightSettings>): Promise<Settings> {
+  const current = await getSettings();
+  const next = normalizeSettings({ ...current, highlights: { ...current.highlights, ...patch } });
+  await chrome.storage.local.set({ [KEY]: next });
+  return next;
+}
+
 export async function resetReaderSettings(): Promise<Settings> {
-  await chrome.storage.local.set({ [KEY]: DEFAULT_SETTINGS });
-  return DEFAULT_SETTINGS;
+  const next = { ...(await getSettings()), reader: DEFAULT_SETTINGS.reader };
+  await chrome.storage.local.set({ [KEY]: next });
+  return next;
 }
 
 export function onSettingsChanged(cb: (settings: Settings) => void): () => void {

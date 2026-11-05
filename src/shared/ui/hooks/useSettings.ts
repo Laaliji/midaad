@@ -3,7 +3,9 @@ import {
   DEFAULT_SETTINGS,
   getSettings,
   onSettingsChanged,
+  updateHighlightSettings,
   updateReaderSettings,
+  type HighlightSettings,
   type ReaderSettings,
   type Settings,
 } from '../../settings';
@@ -37,5 +39,10 @@ export function useSettings() {
     }, 200);
   }
 
-  return { settings, loaded, updateReader };
+  function updateHighlights(patch: Partial<HighlightSettings>) {
+    setSettings((s) => ({ ...s, highlights: { ...s.highlights, ...patch } }));
+    void updateHighlightSettings(patch);
+  }
+
+  return { settings, loaded, updateReader, updateHighlights };
 }
