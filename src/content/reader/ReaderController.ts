@@ -45,6 +45,10 @@ export interface OpenOptions {
   onProgress?: (progress: number) => void;
   /** Called after the reader closes, however it was closed. */
   onClosed?: () => void;
+  /** A short note shown under the title (e.g. that some pages are scans). */
+  notice?: string;
+  /** Called once the article body is in the DOM; may return a cleanup run on close. */
+  onBodyMount?: (body: HTMLElement) => (() => void) | void;
 }
 
 export class ReaderController {
@@ -57,6 +61,7 @@ export class ReaderController {
   private restore: (() => void) | null = null;
   private highlighter: Highlighter | null = null;
   private openOptions: OpenOptions = {};
+  private unmountBody: (() => void) | null = null;
 
   constructor(
     private store: HighlightStore,
@@ -127,6 +132,8 @@ export class ReaderController {
   close() {
     if (!this.ui) return;
     this.flushSave();
+    this.unmountBody?.();
+    this.unmountBody = null;
     this.highlighter?.destroy();
     this.highlighter = null;
     render(null, this.ui.root);
@@ -158,6 +165,7 @@ export class ReaderController {
         onArticleMount: (body, layer) => this.mountHighlighter(body, layer),
         closeLabel: this.openOptions.closeLabel,
         initialProgress: this.openOptions.initialProgress,
+        notice: this.openOptions.notice,
         onProgress: this.openOptions.onProgress,
       }),
       this.ui.root,
@@ -169,6 +177,8 @@ export class ReaderController {
     const ui = this.ui;
     const article = this.article;
     if (!ui || !article) return;
+    this.unmountBody?.();
+    this.unmountBody = this.openOptions.onBodyMount?.(body) || null;
     this.highlighter?.destroy();
     const root = ui.root as ShadowRoot & { getSelection?: () => Selection | null };
     this.highlighter = new Highlighter({

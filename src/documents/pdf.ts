@@ -3,28 +3,40 @@
  * comfortable paragraphs (see pdfLayout.ts). pdf.js runs in its own worker and never executes
  * scripts embedded in the PDF.
  */
-import { getDocument, GlobalWorkerOptions, PasswordResponses, type PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
+import { getDocument, GlobalWorkerOptions, OPS, PasswordResponses, type PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { DocumentError } from './detect';
-import { layoutPages, type PageText, type TextRun } from './pdfLayout';
+import { extractPage, type PdfPageLike } from './pdfExtract';
+import type { OpCodes } from './pdfGraphics';
+import { layoutPages, type PageText } from './pdfLayout';
 import type { ParsedDocument, ParseOptions } from './types';
-
-GlobalWorkerOptions.workerSrc = workerUrl;
 
 const ASSETS = '/pdfjs/';
 
-export async function parsePdf(bytes: Uint8Array, opts: ParseOptions = {}): Promise<ParsedDocument> {
-  const task = getDocument({
+// A patched copy of the worker, written by scripts/copy-pdfjs.mjs (it fixes Arabic ligatures).
+GlobalWorkerOptions.workerSrc = `${ASSETS}pdf.worker.min.mjs`;
+
+/**
+ * Open a PDF with pdf.js, fully offline. `forDrawing` lets pdf.js load the PDF's own fonts as web
+ * fonts, so figures drawn from the file look right; text extraction doesn't need them.
+ */
+export function openPdf(bytes: Uint8Array, opts: { password?: string; forDrawing?: boolean } = {}) {
+  return getDocument({
     data: bytes.slice(), // pdf.js transfers (detaches) the buffer it's given
     password: opts.password,
     cMapUrl: `${ASSETS}cmaps/`,
     cMapPacked: true,
     standardFontDataUrl: `${ASSETS}standard_fonts/`,
+    wasmUrl: `${ASSETS}wasm/`,
+    iccUrl: `${ASSETS}iccs/`,
     enableXfa: false,
-    disableFontFace: true,
+    disableFontFace: !opts.forDrawing,
     useSystemFonts: false,
     stopAtErrors: false,
   });
+}
+
+export async function parsePdf(bytes: Uint8Array, opts: ParseOptions = {}): Promise<ParsedDocument> {
+  const task = openPdf(bytes, { password: opts.password });
 
   let pdf: PDFDocumentProxy;
   try {
@@ -44,33 +56,15 @@ export async function parsePdf(bytes: Uint8Array, opts: ParseOptions = {}): Prom
     const pages: PageText[] = [];
     for (let n = 1; n <= total; n++) {
       const page = await pdf.getPage(n);
-      const content = await page.getTextContent({ includeMarkedContent: false, disableNormalization: false });
-      const runs: TextRun[] = [];
-      for (const item of content.items) {
-        if (!('str' in item)) continue;
-        const [a, b, c, d, x, y] = item.transform as number[];
-        runs.push({
-          str: item.str,
-          x: x!,
-          y: y!,
-          width: item.width,
-          size: Math.hypot(c!, d!) || Math.hypot(a!, b!) || item.height,
-          eol: item.hasEOL,
-        });
-      }
-      pages.push({ runs });
+      pages.push(await extractPage(page as unknown as PdfPageLike, OPS as unknown as OpCodes));
       page.cleanup();
       opts.onProgress?.(n, total);
-      if (n % 8 === 0) await new Promise((r) => setTimeout(r, 0)); // keep the page responsive
+      if (n % 4 === 0) await new Promise((r) => setTimeout(r, 0)); // keep the page responsive
     }
 
-    const { html, chars } = layoutPages(pages);
-    if (chars < Math.max(40, total * 25)) {
-      throw new DocumentError(
-        'scanned',
-        'This PDF contains images of pages, not text, so there’s nothing to read aloud or highlight.',
-        'It was probably scanned. Run it through OCR (for example “Make searchable” in Acrobat, or OCRmyPDF), then open the result.',
-      );
+    const { html, chars, scannedPages, figures } = layoutPages(pages);
+    if (chars < 20 && !figures) {
+      throw new DocumentError('empty', 'This PDF has no text or pictures that Midaad can show.');
     }
 
     const meta = await pdf.getMetadata().catch(() => null);
@@ -83,6 +77,8 @@ export async function parsePdf(bytes: Uint8Array, opts: ParseOptions = {}): Prom
       dir: null,
       html,
       pages: total,
+      scanned: scannedPages > 0 ? (scannedPages === total ? 'all' : 'some') : undefined,
+      file: figures > 0 ? bytes : undefined,
     };
   } finally {
     void task.destroy();

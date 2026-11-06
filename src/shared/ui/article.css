@@ -87,6 +87,15 @@
   align-items: center;
   gap: 6px;
 }
+.mw-article__notice {
+  margin: 14px 0 0;
+  padding: 10px 14px;
+  border-radius: var(--mw-radius-sm);
+  border-inline-start: 3px solid var(--mw-camel);
+  background: var(--mw-surface-2);
+  font: 13px/1.55 var(--mw-font-ui);
+  color: var(--mw-text-muted);
+}
 .mw-article__meta span + span::before {
   content: '';
   width: 4px;
@@ -278,4 +287,124 @@
 }
 .mw-article [data-page='1']::before {
   display: none;
+}
+
+/* ---------------------------------------- documents converted from PDF */
+
+/* Figures drawn from the original file. The slot's shape is set before it's drawn. */
+.mw-article__body [data-pdf-figure] {
+  position: relative;
+  width: 100%;
+  margin-inline: auto;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--mw-surface-2);
+}
+.mw-article__body [data-pdf-figure]:not([data-pdf-drawn])::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--mw-surface) 60%, transparent) 50%, transparent 70%);
+  background-size: 250% 100%;
+  animation: mw-figure-wait 1.6s ease-in-out infinite;
+}
+.mw-article__body [data-pdf-figure][data-pdf-failed]::after {
+  content: 'This picture couldn’t be drawn from the PDF.';
+  display: grid;
+  place-items: center;
+  padding: 1em;
+  background: none;
+  animation: none;
+  font: 13px/1.5 var(--mw-font-ui);
+  color: var(--mw-text-muted);
+  text-align: center;
+}
+.mw-article__body [data-pdf-figure][data-pdf-drawn] {
+  background: #fff; /* PDF pages are drawn on white */
+  box-shadow: 0 0 0 1px var(--mw-rule);
+}
+.mw-article__body [data-pdf-figure] canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.mw-article[data-theme='dark'] .mw-article__body [data-pdf-figure][data-pdf-drawn],
+.mr[data-theme='dark'] .mw-article__body [data-pdf-figure][data-pdf-drawn] {
+  filter: brightness(0.9);
+}
+@keyframes mw-figure-wait {
+  from { background-position: 100% 0; }
+  to { background-position: -150% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mw-article__body [data-pdf-figure]::after {
+    animation: none;
+  }
+}
+
+/* Text recognized on a scanned page (its OCR layer), folded away under the picture. */
+.mw-article__body details[data-ocr] {
+  margin-block: -0.4em 1.4em;
+  font-size: 0.92em;
+}
+.mw-article__body details[data-ocr] > summary {
+  cursor: pointer;
+  font: 13px/1.5 var(--mw-font-ui);
+  color: var(--mw-text-muted);
+}
+.mw-article__body details[data-ocr][open] > summary {
+  margin-bottom: 0.6em;
+}
+
+.mw-article__body table caption {
+  caption-side: top;
+  margin-bottom: 0.5em;
+  font-family: var(--mw-font-ui);
+  font-size: 0.9em;
+  color: var(--mw-text-muted);
+  text-align: start;
+}
+
+/* Nested list levels, and lists whose own markers ("a)", "(iv)") are kept in the text. */
+.mw-article__body li[data-level='2'] { margin-inline-start: 1.4em; }
+.mw-article__body li[data-level='3'] { margin-inline-start: 2.8em; }
+.mw-article__body ul[data-markers] {
+  list-style: none;
+  padding-inline-start: 0;
+}
+
+/* A table of contents: titles with their page numbers at the line's end. */
+.mw-article__body ol[data-toc] {
+  list-style: none;
+  padding: 0;
+  font-size: 0.94em;
+}
+.mw-article__body ol[data-toc] > li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6em;
+}
+.mw-article__body ol[data-toc] > li::after {
+  content: '';
+  order: 1;
+  flex: 1;
+  border-bottom: 1px dotted var(--mw-rule-strong);
+  min-width: 1.5em;
+}
+.mw-article__body ol[data-toc] > li[data-level='2'] { padding-inline-start: 1.4em; }
+.mw-article__body ol[data-toc] > li[data-level='3'] { padding-inline-start: 2.8em; }
+.mw-article__body [data-toc-page] {
+  order: 2;
+  font-variant-numeric: tabular-nums;
+  color: var(--mw-text-muted);
+}
+
+/* Footnotes. */
+.mw-article__body p[data-note] {
+  font-size: 0.82em;
+  line-height: 1.55;
+  color: var(--mw-text-muted);
+}
+.mw-article__body p[data-note] + p[data-note] {
+  margin-top: -0.6em;
 }
