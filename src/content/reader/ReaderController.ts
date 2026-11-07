@@ -49,7 +49,7 @@ export interface OpenOptions {
   notice?: string;
   /** Called once the article body is in the DOM; may return a cleanup run on close. */
   onBodyMount?: (body: HTMLElement) => (() => void) | void;
-  /** The article has no text (only pictures of scanned pages): highlights and notes are turned off. */
+  /** The article has no text, only pictures of scanned pages (highlights are boxes drawn on them). */
   textless?: boolean;
 }
 
@@ -183,9 +183,6 @@ export class ReaderController {
     this.unmountBody?.();
     this.unmountBody = this.openOptions.onBodyMount?.(body) || null;
     this.highlighter?.destroy();
-    this.highlighter = null;
-    // Nothing to select: no highlight toolbar, notes or shortcut.
-    if (this.openOptions.textless) return;
     const root = ui.root as ShadowRoot & { getSelection?: () => Selection | null };
     this.highlighter = new Highlighter({
       layer: 'reader',

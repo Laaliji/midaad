@@ -4,7 +4,7 @@
  * and opens a popover when you click one.
  */
 import { h, render } from 'preact';
-import { LIMITS, type HighlightColor, type PageMeta } from '../../shared/highlights';
+import { LIMITS, type HighlightArea, type HighlightColor, type PageMeta } from '../../shared/highlights';
 import type { HighlightSettings } from '../../shared/settings';
 import { showToast } from '../ui/toast';
 import { anchorQuote, buildIndex, collapseWhitespace, describeRange, rangeFromSpan } from './anchor';
@@ -13,6 +13,9 @@ import { HighlightLayer, type LayerState } from './HighlightLayer';
 import { clearLayer, paintLayer, setActive, type Painted } from './painter';
 import type { HighlightStore } from './store';
 import { newId } from '../../shared/highlights';
+import { areaBetween, areaLabel, areaPosition, clearAreas, createBand, moveBand, paintAreas, slotAt } from './areas';
+
+type Point = { x: number; y: number };
 
 export interface HighlighterConfig {
   /** Painter layer name; also used in logs. */
@@ -52,6 +55,13 @@ export class Highlighter {
   private retries = 0;
   private selTimer = 0;
   private destroyed = false;
+  /** Picture highlights currently shown, by id. */
+  private areaEls = new Map<string, HTMLElement>();
+  /** A box being dragged over a picture. */
+  private drag: { slot: HTMLElement; start: Point; band: HTMLElement | null; pointerId: number } | null = null;
+  /** A box drawn and waiting for a colour (the toolbar is open). */
+  private pendingArea: { slot: HTMLElement; band: HTMLElement; area: HighlightArea } | null = null;
+  private activeArea: string | null = null;
 
   constructor(private cfg: HighlighterConfig) {}
 
@@ -66,6 +76,8 @@ export class Highlighter {
     };
     on(events, 'pointerdown', (e) => this.onPointerDown(e as PointerEvent));
     on(events, 'pointerup', (e) => this.onPointerUp(e as PointerEvent));
+    on(events, 'pointermove', (e) => this.onPointerMove(e as PointerEvent), { capture: true, passive: true });
+    on(events, 'pointercancel', () => this.cancelDrag());
     on(events, 'keyup', (e) => this.onKeyUp(e as KeyboardEvent));
     on(events, 'keydown', (e) => this.onKeyDown(e as KeyboardEvent));
     on(document, 'selectionchange', () => this.onSelectionChange(), { passive: true });
@@ -86,6 +98,9 @@ export class Highlighter {
     for (const fn of this.cleanups.splice(0)) fn();
     render(null, this.cfg.ui);
     clearLayer(this.cfg.layer);
+    this.cancelDrag();
+    clearAreas(this.cfg.root);
+    this.areaEls.clear();
     this.ranges.clear();
   }
 
@@ -111,7 +126,7 @@ export class Highlighter {
     for (const id of [...this.ranges.keys()]) if (!ids.has(id)) this.ranges.delete(id);
     for (const id of [...this.missing]) if (!ids.has(id)) this.missing.delete(id);
 
-    const unanchored = items.filter((x) => !this.ranges.has(x.id));
+    const unanchored = items.filter((x) => !x.area && !this.ranges.has(x.id));
     if (unanchored.length) {
       const index = buildIndex(this.cfg.root);
       for (const hl of unanchored) {
@@ -138,6 +153,7 @@ export class Highlighter {
       if (range) painted.set(hl.id, { range, color: hl.color, hasNote: !!hl.note.trim() });
     }
     paintLayer(this.cfg.layer, painted);
+    this.areaEls = paintAreas(this.cfg.root, this.cfg.store.all, this.activeArea);
   }
 
   private onMutations() {
@@ -195,6 +211,34 @@ export class Highlighter {
     if (hl && withNote && !this.destroyed) this.openPopover(hl.id, true);
   }
 
+  /** A box was drawn on a picture: offer colours, or highlight at once if the toolbar is off. */
+  private offerArea(slot: HTMLElement, band: HTMLElement, area: HighlightArea) {
+    if (!this.cfg.settings().selectionToolbar) {
+      band.remove();
+      void this.createArea(slot, area, this.cfg.settings().defaultColor, false);
+      return;
+    }
+    this.pendingArea = { slot, band, area };
+    this.selectionRange = null;
+    this.setState({ kind: 'toolbar', rects: () => [band.getBoundingClientRect()] });
+  }
+
+  private async createArea(slot: HTMLElement, area: HighlightArea, color: HighlightColor, withNote: boolean) {
+    this.closeUi();
+    const hl = await this.cfg.store.create(
+      {
+        id: newId(),
+        quote: { exact: '', prefix: '', suffix: '' },
+        position: areaPosition(this.cfg.root, slot, area),
+        text: areaLabel(area),
+        color,
+        area,
+      },
+      this.cfg.pageMeta(),
+    );
+    if (hl && withNote && !this.destroyed) this.openPopover(hl.id, true);
+  }
+
   /* ---------------------------------------------------------------- events */
 
   private inUi(e: Event): boolean {
@@ -205,12 +249,59 @@ export class Highlighter {
     if (this.inUi(e)) return;
     this.down = { x: e.clientX, y: e.clientY };
     if (this.state.kind !== 'none') this.closeUi();
+
+    // Dragging over a picture draws a box (there's no text there to select).
+    const target = e.target as Element | null;
+    if (e.button !== 0 || target?.closest?.('.mh-area')) return;
+    const slot = slotAt(target, this.cfg.root);
+    if (!slot?.hasAttribute('data-pdf-drawn')) return;
+    e.preventDefault(); // no text selection, no dragging the canvas away
+    this.cfg.getSelection()?.removeAllRanges();
+    this.drag = { slot, start: { x: e.clientX, y: e.clientY }, band: null, pointerId: e.pointerId };
+    try {
+      slot.setPointerCapture(e.pointerId);
+    } catch {
+      /* the pointer is already gone */
+    }
+  }
+
+  private onPointerMove(e: PointerEvent) {
+    const d = this.drag;
+    if (!d || e.pointerId !== d.pointerId) return;
+    const p = { x: e.clientX, y: e.clientY };
+    if (!d.band) {
+      if (Math.hypot(p.x - d.start.x, p.y - d.start.y) < 4) return;
+      d.band = createBand(d.slot);
+    }
+    moveBand(d.band, d.slot, d.start, p);
+  }
+
+  private cancelDrag() {
+    const d = this.drag;
+    if (!d) return;
+    this.drag = null;
+    d.band?.remove();
+    try {
+      d.slot.releasePointerCapture(d.pointerId);
+    } catch {
+      /* already released */
+    }
   }
 
   private onPointerUp(e: PointerEvent) {
+    const d = this.drag;
+    if (d && e.pointerId === d.pointerId) {
+      this.drag = null;
+      const area = d.band ? areaBetween(d.slot, d.start, { x: e.clientX, y: e.clientY }) : null;
+      if (area && d.band) this.offerArea(d.slot, d.band, area);
+      else d.band?.remove();
+      return;
+    }
     if (this.inUi(e) || e.button !== 0) return;
     const down = this.down;
     this.down = null;
+    // Read the target now: once dispatch ends, events from inside a shadow root lose it.
+    const target = e.target as Element | null;
     // Let the browser finish updating the selection first.
     setTimeout(() => {
       if (this.destroyed) return;
@@ -218,7 +309,8 @@ export class Highlighter {
       if (range) return this.showToolbar(range);
       const moved = down ? Math.hypot(e.clientX - down.x, e.clientY - down.y) : 0;
       if (moved > 4) return;
-      const target = e.target as Element | null;
+      const areaId = (target?.closest?.('.mh-area') as HTMLElement | null)?.dataset.mhArea;
+      if (areaId) return this.openPopover(areaId, false);
       if (target?.closest?.(INTERACTIVE)) return;
       const id = this.highlightAt(e.clientX, e.clientY);
       if (id) this.openPopover(id, false);
@@ -234,6 +326,20 @@ export class Highlighter {
   }
 
   private onKeyDown(e: KeyboardEvent) {
+    // A picture highlight has keyboard focus: Enter or Space opens it.
+    const areaId = ((e.target as Element | null)?.closest?.('.mh-area') as HTMLElement | null)?.dataset.mhArea;
+    if (areaId && (e.key === 'Enter' || e.key === ' ') && !this.inUi(e)) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.openPopover(areaId, false);
+      return;
+    }
+    if (e.key === 'Escape' && this.drag) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.cancelDrag();
+      return;
+    }
     if (e.key === 'Escape' && this.state.kind !== 'none' && !this.inUi(e)) {
       e.preventDefault();
       e.stopPropagation();
@@ -242,7 +348,7 @@ export class Highlighter {
   }
 
   private onSelectionChange() {
-    if (this.state.kind !== 'toolbar') return;
+    if (this.state.kind !== 'toolbar' || this.pendingArea) return;
     clearTimeout(this.selTimer);
     this.selTimer = window.setTimeout(() => {
       if (this.state.kind === 'toolbar' && !this.currentSelection()) this.closeUi();
@@ -279,13 +385,34 @@ export class Highlighter {
 
   private openPopover(id: string, focusNote: boolean) {
     const r = this.ranges.get(id);
-    if (!r) return;
-    setActive(id);
-    this.setState({ kind: 'popover', id, focusNote, rects: () => r.getClientRects() });
+    if (r) {
+      setActive(id);
+      this.setState({ kind: 'popover', id, focusNote, rects: () => r.getClientRects() });
+      return;
+    }
+    const el = this.areaEls.get(id);
+    if (!el) return;
+    this.activeArea = id;
+    el.classList.add('is-active');
+    this.setState({ kind: 'popover', id, focusNote, rects: () => [(this.areaEls.get(id) ?? el).getBoundingClientRect()] });
   }
 
   private closeUi() {
-    if (this.state.kind === 'popover') setActive(null);
+    if (this.state.kind === 'popover') {
+      setActive(null);
+      if (this.activeArea) {
+        const el = this.areaEls.get(this.activeArea);
+        el?.classList.remove('is-active');
+        // Closed from the keyboard: give focus back to the picture highlight.
+        const root = this.cfg.ui.getRootNode() as Document | ShadowRoot;
+        if (el && root.activeElement && this.cfg.ui.contains(root.activeElement)) el.focus({ preventScroll: true });
+        this.activeArea = null;
+      }
+    }
+    if (this.pendingArea) {
+      this.pendingArea.band.remove();
+      this.pendingArea = null;
+    }
     this.setState({ kind: 'none' });
   }
 
@@ -303,8 +430,17 @@ export class Highlighter {
         state,
         highlight: state.kind === 'popover' ? store.get(state.id) : undefined,
         defaultColor: settings().defaultColor,
-        onHighlight: (color) => this.selectionRange && void this.create(this.selectionRange, color, false),
-        onHighlightWithNote: () => this.selectionRange && void this.create(this.selectionRange, settings().defaultColor, true),
+        mode: this.pendingArea ? 'area' : 'text',
+        onHighlight: (color) => {
+          const p = this.pendingArea;
+          if (p) void this.createArea(p.slot, p.area, color, false);
+          else if (this.selectionRange) void this.create(this.selectionRange, color, false);
+        },
+        onHighlightWithNote: () => {
+          const p = this.pendingArea;
+          if (p) void this.createArea(p.slot, p.area, settings().defaultColor, true);
+          else if (this.selectionRange) void this.create(this.selectionRange, settings().defaultColor, true);
+        },
         onAction: (actionId) => {
           const r = this.selectionRange;
           const action = selectionActions.find((a) => a.id === actionId);

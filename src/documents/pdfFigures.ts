@@ -102,7 +102,8 @@ export function mountPdfFigures(body: HTMLElement, file: Uint8Array): () => void
     if (stopped) return;
     if (!queue.length) open?.cleanup();
     canvas.setAttribute('aria-hidden', 'true'); // the slot carries the description
-    slot.replaceChildren(canvas);
+    slot.querySelector('canvas')?.remove();
+    slot.prepend(canvas); // keep highlight boxes already placed on top
     slot.setAttribute('data-pdf-drawn', '');
   };
 

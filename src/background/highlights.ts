@@ -4,7 +4,7 @@
 import { db } from '../shared/db';
 import { ensureContentScript, openLibrary } from './reader';
 import { sendToTab, type BackgroundApi, type Handlers } from '../shared/messages';
-import { isHighlightColor, LIMITS, type Highlight, type HighlightPatch, type PageMeta } from '../shared/highlights';
+import { isHighlightColor, LIMITS, type Highlight, type HighlightArea, type HighlightPatch, type PageMeta } from '../shared/highlights';
 
 /* ------------------------------------------------------------------ storage */
 
@@ -15,7 +15,8 @@ function clampStr(v: unknown, max: number): string {
 /** Content scripts are ours, but validate anyway: the database outlives any one bug. */
 function sanitizeHighlight(h: Highlight): Highlight {
   if (!h || typeof h.id !== 'string' || !/^[0-9a-f]{32}$/.test(h.id)) throw new Error('Invalid highlight id');
-  if (!h.quote || typeof h.quote.exact !== 'string' || !h.quote.exact) throw new Error('Empty highlight');
+  const area = sanitizeArea(h.area);
+  if (!h.quote || typeof h.quote.exact !== 'string' || (!h.quote.exact && !area)) throw new Error('Empty highlight');
   const now = Date.now();
   return {
     id: h.id,
@@ -29,9 +30,17 @@ function sanitizeHighlight(h: Highlight): Highlight {
     text: clampStr(h.text, LIMITS.text),
     color: isHighlightColor(h.color) ? h.color : 'honey',
     note: clampStr(h.note, LIMITS.note),
+    ...(area && { area }),
     createdAt: Number(h.createdAt) || now,
     updatedAt: now,
   };
+}
+
+function sanitizeArea(a: HighlightArea | undefined): HighlightArea | undefined {
+  if (!a || typeof a !== 'object') return undefined;
+  const f = (v: unknown) => Math.min(1, Math.max(0, Number(v) || 0));
+  const area = { page: Math.max(1, Math.floor(Number(a.page) || 1)), figure: clampStr(a.figure, 100), x: f(a.x), y: f(a.y), w: f(a.w), h: f(a.h) };
+  return area.w > 0 && area.h > 0 ? area : undefined;
 }
 
 async function upsertPage(meta: PageMeta) {

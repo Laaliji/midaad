@@ -47,6 +47,19 @@ export interface TextQuote {
   suffix: string;
 }
 
+/**
+ * A box on a picture (a scanned page, a figure) in a document from a PDF: the figure's page and
+ * box as written in the converted HTML, and the box's place in it as fractions (0..1).
+ */
+export interface HighlightArea {
+  page: number;
+  figure: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface Highlight {
   id: string;
   /** Normalized page URL (see shared/url.ts). */
@@ -58,6 +71,8 @@ export interface Highlight {
   text: string;
   color: HighlightColor;
   note: string;
+  /** Picture highlights only. Their `quote` is empty and `text` describes the place. */
+  area?: HighlightArea;
   createdAt: number;
   updatedAt: number;
 }
