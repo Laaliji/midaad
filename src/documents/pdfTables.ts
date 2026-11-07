@@ -7,8 +7,8 @@
  *
  * Pure geometry, no pdf.js dependency.
  */
-import { contains, type Box, type Rule } from './pdfGraphics';
-import { lineFromRuns, strength, toLines, type Line, type TextRun } from './pdfText';
+import { contains, type Box, type Rule, type Shape } from './pdfGraphics';
+import { letterDirection, lineFromRuns, toLines, type Line, type TextRun } from './pdfText';
 
 export interface Cell {
   row: number;
@@ -92,12 +92,97 @@ function coverage(rules: Rule[], horizontal: boolean, pos: number, a0: number, a
 }
 
 /**
+ * Tables drawn with row lines only, as web pages printed to PDF often are: no vertical lines, but
+ * each row line is drawn one cell at a time, so its pieces meet where the columns meet. A stack
+ * of row lines that span the same width and meet at the same places implies the column lines.
+ * Header cells drawn as filled boxes give the header's top line, and a border drawn around the
+ * whole table closes a last row that has no line under it.
+ *
+ * Returns the lines to add: the implied column lines, and row lines taken from boxes.
+ */
+export function impliedRules(rules: Rule[], shapes: Shape[], runs: TextRun[]): Rule[] {
+  interface Level {
+    y: number;
+    pieces: { x0: number; x1: number }[];
+    drawn: boolean;
+  }
+  const pieces = [
+    ...rules.filter((r) => r.horizontal).map((r) => ({ y: r.y0, x0: r.x0, x1: r.x1, drawn: true })),
+    ...shapes
+      .filter((s) => s.filled && !s.curved && s.y1 - s.y0 < 80)
+      .flatMap((s) => [
+        { y: s.y1, x0: s.x0, x1: s.x1, drawn: false },
+        { y: s.y0, x0: s.x0, x1: s.x1, drawn: false },
+      ]),
+  ];
+  const levels: Level[] = [];
+  for (const p of pieces) {
+    const level = levels.find((l) => Math.abs(l.y - p.y) <= TOL);
+    if (level) {
+      level.pieces.push(p);
+      level.drawn ||= p.drawn;
+    } else {
+      levels.push({ y: p.y, pieces: [p], drawn: p.drawn });
+    }
+  }
+
+  // Each level's width and the places where its pieces meet. A level with gaps (fraction bars
+  // side by side, underlined words) isn't a row line: it gets no joins and joins no stack.
+  const sig = (l: Level) => {
+    const sorted = [...l.pieces].sort((a, b) => a.x0 - b.x0);
+    const x0 = sorted[0]!.x0;
+    let x1 = sorted[0]!.x1;
+    const joins: number[] = [];
+    for (const p of sorted.slice(1)) {
+      if (p.x0 > x1 + TOL * 2) return { x0, x1, joins: [] as number[] };
+      if (Math.abs(p.x0 - x1) <= TOL * 2) joins.push(p.x0);
+      x1 = Math.max(x1, p.x1);
+    }
+    return { x0, x1, joins: distinct(joins).filter((x) => x > x0 + TOL * 2 && x < x1 - TOL * 2) };
+  };
+  const same = (a: ReturnType<typeof sig>, b: ReturnType<typeof sig>) =>
+    Math.abs(a.x0 - b.x0) <= TOL * 2 &&
+    Math.abs(a.x1 - b.x1) <= TOL * 2 &&
+    a.joins.length === b.joins.length &&
+    a.joins.every((x, i) => Math.abs(x - b.joins[i]!) <= TOL * 2);
+
+  const out: Rule[] = [];
+  const used = new Set<Level>();
+  for (const first of [...levels].sort((a, b) => b.y - a.y)) {
+    if (used.has(first)) continue;
+    const s = sig(first);
+    if (!s.joins.length) continue;
+    const stack = levels.filter((l) => !used.has(l) && same(sig(l), s)).sort((a, b) => b.y - a.y);
+    stack.forEach((l) => used.add(l));
+    if (stack.length < 3 || !stack.some((l) => l.drawn)) continue;
+
+    let top = stack[0]!.y;
+    let bottom = stack[stack.length - 1]!.y;
+    const textBetween = (hi: number, lo: number) =>
+      runs.some((r) => r.str.trim() && r.x + r.width / 2 > s.x0 && r.x + r.width / 2 < s.x1 && r.y + r.size * 0.3 < hi && r.y + r.size * 0.3 > lo);
+    // A border or background around the whole table closes the first and last rows.
+    const frame = shapes.find((f) => Math.abs(f.x0 - s.x0) <= 4 && Math.abs(f.x1 - s.x1) <= 4 && f.y1 >= top - TOL && f.y0 <= bottom + TOL);
+    if (frame) {
+      if (frame.y0 < bottom - 4 && textBetween(bottom, frame.y0)) bottom = frame.y0;
+      if (frame.y1 > top + 4 && textBetween(frame.y1, top)) top = frame.y1;
+    }
+
+    for (const y of [top, bottom, ...stack.filter((l) => !l.drawn).map((l) => l.y)]) {
+      out.push({ x0: s.x0, x1: s.x1, y0: y, y1: y, horizontal: true });
+    }
+    for (const x of [s.x0, ...s.joins, s.x1]) out.push({ x0: x, x1: x, y0: bottom, y1: top, horizontal: false });
+  }
+  return out;
+}
+
+/**
  * Grids of crossing lines, with the runs that fall inside each cell. Returns the tables and the
  * runs that weren't used.
  */
-export function findRuledTables(rules: Rule[], runs: TextRun[], page: number): { tables: Table[]; rest: TextRun[] } {
-  const hs = mergeRules(rules, true);
-  const vs = mergeRules(rules, false);
+export function findRuledTables(rules: Rule[], runs: TextRun[], page: number, shapes: Shape[] = []): { tables: Table[]; rest: TextRun[] } {
+  const withImplied = [...rules, ...impliedRules(rules, shapes, runs)];
+  const hs = mergeRules(withImplied, true);
+  const vs = mergeRules(withImplied, false);
   const all = [...hs, ...vs];
   if (hs.length < 2 || vs.length < 2) return { tables: [], rest: runs };
 
@@ -195,7 +280,7 @@ export function findRuledTables(rules: Rule[], runs: TextRun[], page: number): {
     if (filled.length < 2) continue;
 
     const text = filled.flatMap((c) => c.lines.map((l) => l.text)).join(' ');
-    const dir = strength(text);
+    const dir = letterDirection(text);
     const firstRow = cells.filter((c) => c.row === 0 && c.lines.length);
     const header = rows > 1 && firstRow.length > 0 && firstRow.every((c) => c.lines.every((l) => l.styled.flags.every((f, i) => f & 1 || l.styled.chars[i] === ' ')));
     tables.push({ box, rows, cols, cells, rtl: dir.rtl > dir.ltr, header });
@@ -295,7 +380,7 @@ function alignColumns(rows: Line[], segs: TextRun[][][], page: number): Table | 
   if (used.filter((n) => n >= rows.length * 0.6).length < 2) return null;
 
   const text = rows.map((l) => l.text).join(' ');
-  const dir = strength(text);
+  const dir = letterDirection(text);
   const rtl = dir.rtl > dir.ltr;
   const cells: Cell[] = [];
   assigned.forEach((byCol, r) => {

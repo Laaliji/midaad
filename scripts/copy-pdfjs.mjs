@@ -3,6 +3,7 @@
 // pictures work fully offline.
 // Also writes a patched copy of the pdf.js worker (see patchWorker below).
 import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { repairUnicode } from './glyph-repair.mjs';
 
 for (const dir of ['cmaps', 'standard_fonts', 'iccs']) {
   mkdirSync(`public/pdfjs/${dir}`, { recursive: true });
@@ -33,13 +34,28 @@ const GLYPH_FIX =
   'for(const c of n){const k=c.charCodeAt(0);if((k>=1424&&k<=2303)||(k>=64285&&k<=65023)||(k>=65136&&k<=65276))return[...n].reverse().join("")}' +
   'return n})';
 
+/**
+ * Fonts whose ToUnicode table gives a few Arabic glyphs the wrong text (a damma as "ح", a shadda
+ * as a space): see scripts/glyph-repair.mjs. Its function is inlined where pdf.js creates a glyph
+ * from a character code (once per code and font), so the text layer reads the repaired text.
+ */
+const NEW_GLYPH = /([\w$]+)=new ([\w$]+)\(this\.fontExtraProperties,([\w$]+),([\w$]+),([\w$]+),/g;
+
 function patchWorker(src) {
   const target = 'function runBidiTransform(e){let t=e.str.join("");';
   const count = src.split(target).length - 1;
   if (count !== 1) {
     throw new Error(`pdf.js worker patch: expected the bidi join exactly once, found ${count}. pdf.js changed: update scripts/copy-pdfjs.mjs.`);
   }
-  return src.replace(target, `function runBidiTransform(e){let t=e.str.map(${GLYPH_FIX}).join("");`);
+  let out = src.replace(target, `function runBidiTransform(e){let t=e.str.map(${GLYPH_FIX}).join("");`);
+
+  const found = out.match(NEW_GLYPH) ?? [];
+  if (found.length !== 1) {
+    throw new Error(`pdf.js worker patch: expected one glyph constructor in charToGlyph, found ${found.length}. pdf.js changed: update scripts/copy-pdfjs.mjs.`);
+  }
+  const repair = repairUnicode.toString();
+  out = out.replace(NEW_GLYPH, (_m, glyph, cls, code, fontChar, text) => `${glyph}=new ${cls}(this.fontExtraProperties,${code},${fontChar},(${repair})(this,${code},${text}),`);
+  return out;
 }
 
 const worker = readFileSync('node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs', 'utf8');
