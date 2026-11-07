@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { Wordmark } from '../shared/ui/Brand';
-import { KIND_LABELS, type DocumentRecord } from '../shared/documents';
+import { KIND_LABELS, isTextless, type DocumentRecord } from '../shared/documents';
 import { DocumentError } from '../documents/detect';
 
 export type Status =
@@ -205,7 +205,7 @@ function DocRow({ doc, onOpen, onRemove }: { doc: DocumentRecord; onOpen: () => 
   const meta = [
     doc.author,
     doc.pages ? `${doc.pages} ${doc.pages === 1 ? 'page' : 'pages'}` : null,
-    `${doc.minutes} min read`,
+    isTextless(doc) ? 'Scanned, no text' : `${doc.minutes} min read`,
     pct >= 99 ? 'Finished' : pct > 0 ? `${pct}% read` : null,
     `Opened ${relativeTime(doc.openedAt)}`,
   ].filter(Boolean);

@@ -9,7 +9,7 @@ import '../options/options.css';
 import './library.css';
 import { loadFonts } from '../shared/fonts';
 import { DEFAULT_SETTINGS, getSettings, onSettingsChanged, type Settings } from '../shared/settings';
-import type { DocumentRecord } from '../shared/documents';
+import { isTextless, type DocumentRecord } from '../shared/documents';
 import { ReaderController } from '../content/reader/ReaderController';
 import { HighlightStore } from '../content/highlights/store';
 import { convertFile, deleteDocument, listDocuments, loadDocument, saveDocument, saveProgress, DocumentError, type OpenedDocument } from '../documents';
@@ -114,8 +114,15 @@ async function openStored(key: string) {
 
 const SCANNED_NOTICE = {
   some: 'Some pages of this PDF are scans. They’re shown as pictures, so their text can’t be highlighted.',
-  all: 'This PDF is made of scanned pages. They’re shown as pictures, so their text can’t be highlighted. To read and highlight the text, run the file through OCR (for example OCRmyPDF, or “Make searchable” in Acrobat), then open the result.',
+  all: 'This PDF is made of scanned pages, shown as pictures. To read and highlight a page’s text, open “Text recognized on this page” under its picture.',
+  textless:
+    'This PDF is made of scanned pages, shown as pictures. There’s no text to select, so highlights and notes are turned off for it. To read and highlight the text, run the file through OCR (for example OCRmyPDF, or “Make searchable” in Acrobat), then open the result.',
 };
+
+function scannedNotice(record: DocumentRecord): string | undefined {
+  if (!record.scanned) return undefined;
+  return isTextless(record) ? SCANNED_NOTICE.textless : SCANNED_NOTICE[record.scanned];
+}
 
 /** Figures are drawn from the original PDF; pdf.js loads only when a document has some. */
 function figureMounter(file: Uint8Array | undefined) {
@@ -140,7 +147,8 @@ async function show({ record, article, file }: OpenedDocument) {
   document.title = `${record.title} · Midaad`;
   await reader.openArticle(article, {
     closeLabel: 'Back to Library',
-    notice: record.scanned ? SCANNED_NOTICE[record.scanned] : undefined,
+    notice: scannedNotice(record),
+    textless: isTextless(record),
     onBodyMount: figureMounter(file),
     initialProgress: record.progress,
     onProgress: (p) => void saveProgress(record.key, p),
