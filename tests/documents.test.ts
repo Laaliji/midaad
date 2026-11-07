@@ -222,3 +222,35 @@ describe('layoutPages (PDF text → paragraphs)', () => {
     expect(html).toContain('Hello world');
   });
 });
+
+describe('layoutPages (figures and scans)', () => {
+  const view: [number, number, number, number] = [0, 0, 612, 792];
+  const body = Array.from({ length: 6 }, (_, i) => run(`Ordinary paragraph text on line number ${i + 1} of the page, long enough.`, 72, 720 - i * 14));
+  const graphics = (shapes: { x0: number; y0: number; x1: number; y1: number }[], images: { x0: number; y0: number; x1: number; y1: number }[] = []) => ({
+    rules: [],
+    shapes: shapes.map((s) => ({ ...s, filled: true, stroked: false, curved: true })),
+    images,
+    text: { visible: 1, invisible: 0 },
+  });
+
+  it('turns a drawing into a figure placeholder that names its page and area', () => {
+    const { html, figures } = layoutPages([{ runs: body, view, graphics: graphics([{ x0: 150, y0: 300, x1: 300, y1: 450 }, { x0: 305, y0: 300, x1: 460, y1: 450 }]) }]);
+    expect(figures).toBe(1);
+    expect(html).toMatch(/<figure data-pdf-page="1" data-pdf-box="[0-9. ]+"><div data-pdf-figure role="img"><\/div><\/figure>/);
+    expect(html).toContain('Ordinary paragraph text on line number 1');
+  });
+
+  it('ignores ornaments that run off the edge of the page', () => {
+    const swooshes = Array.from({ length: 8 }, (_, i) => ({ x0: 400 + i, y0: -200, x1: 700, y1: 300 - i * 10 }));
+    const { html, figures } = layoutPages([{ runs: body, view, graphics: graphics(swooshes) }]);
+    expect(figures).toBe(0);
+    expect(html).not.toContain('<figure');
+  });
+
+  it('shows a scanned page as a picture of the whole page', () => {
+    const { html, figures, scannedPages } = layoutPages([{ runs: [], view, graphics: graphics([], [{ x0: 0, y0: 0, x1: 612, y1: 792 }]) }]);
+    expect(scannedPages).toBe(1);
+    expect(figures).toBe(1);
+    expect(html).toContain('data-pdf-box="0 0 612 792"');
+  });
+});

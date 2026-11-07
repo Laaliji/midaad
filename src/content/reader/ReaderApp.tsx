@@ -21,6 +21,8 @@ interface Props {
   initialProgress?: number;
   /** Reports the reading position while scrolling (throttled). */
   onProgress?: (progress: number) => void;
+  /** A short note shown under the title. */
+  notice?: string;
 }
 
 interface TocEntry {
@@ -42,6 +44,7 @@ export function ReaderApp({
   closeLabel = 'Back to the original page',
   initialProgress = 0,
   onProgress,
+  notice,
 }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -280,6 +283,11 @@ export function ReaderApp({
                 <span>{labels.words(article.words)}</span>
                 {published && <span>{published}</span>}
               </p>
+              {notice && (
+                <p class="mw-article__notice" role="note">
+                  {notice}
+                </p>
+              )}
             </header>
             <div class="mw-article__rule" aria-hidden="true">
               <MidaadMark size={20} />

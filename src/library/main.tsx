@@ -112,13 +112,36 @@ async function openStored(key: string) {
   }
 }
 
-async function show({ record, article }: OpenedDocument) {
+const SCANNED_NOTICE = {
+  some: 'Some pages of this PDF are scans. They’re shown as pictures, so their text can’t be highlighted.',
+  all: 'This PDF is made of scanned pages. They’re shown as pictures, so their text can’t be highlighted. To read and highlight the text, run the file through OCR (for example OCRmyPDF, or “Make searchable” in Acrobat), then open the result.',
+};
+
+/** Figures are drawn from the original PDF; pdf.js loads only when a document has some. */
+function figureMounter(file: Uint8Array | undefined) {
+  if (!file) return undefined;
+  return (body: HTMLElement) => {
+    let unmount: (() => void) | null = null;
+    let cancelled = false;
+    void import('../documents/pdfFigures').then(({ mountPdfFigures }) => {
+      if (!cancelled) unmount = mountPdfFigures(body, file);
+    });
+    return () => {
+      cancelled = true;
+      unmount?.();
+    };
+  };
+}
+
+async function show({ record, article, file }: OpenedDocument) {
   await store.load(record.key);
   update({ status: { kind: 'idle' } });
   history.replaceState(null, '', `#${encodeURIComponent(record.key)}`);
   document.title = `${record.title} · Midaad`;
   await reader.openArticle(article, {
     closeLabel: 'Back to Library',
+    notice: record.scanned ? SCANNED_NOTICE[record.scanned] : undefined,
+    onBodyMount: figureMounter(file),
     initialProgress: record.progress,
     onProgress: (p) => void saveProgress(record.key, p),
     onClosed: () => {

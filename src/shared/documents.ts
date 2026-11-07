@@ -25,6 +25,8 @@ export interface DocumentRecord {
   minutes: number;
   size: number;
   pages?: number;
+  /** PDFs: some or all pages are scans, shown as pictures. */
+  scanned?: 'some' | 'all';
   addedAt: number;
   openedAt: number;
   /** Reading position, 0..1. */
@@ -35,6 +37,8 @@ export interface DocumentContent {
   key: string;
   /** Sanitized HTML of the converted document. */
   html: string;
+  /** PDFs with figures: the original file, which the figures are drawn from. */
+  file?: Uint8Array;
 }
 
 export const DOC_PREFIX = 'doc:';

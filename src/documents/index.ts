@@ -15,6 +15,8 @@ export { DocumentError } from './detect';
 export interface OpenedDocument {
   record: DocumentRecord;
   article: Article;
+  /** PDFs with figures: the original file, which the figures are drawn from. */
+  file?: Uint8Array;
 }
 
 export async function documentKey(bytes: Uint8Array): Promise<string> {
@@ -67,7 +69,9 @@ export async function convertFile(bytes: Uint8Array, fileName: string, opts: Par
   } else {
     article = toArticle(parsed, key, fileName);
   }
-  if (!article.textContent.trim()) throw new DocumentError('empty', 'This file has no readable text.');
+  // A scanned PDF can have no text at all, only pictures of its pages.
+  const hasFigures = !!parsed.file && !!article.content.querySelector('[data-pdf-figure]');
+  if (!article.textContent.trim() && !hasFigures) throw new DocumentError('empty', 'This file has no readable text.');
 
   const record: DocumentRecord = {
     key,
@@ -81,11 +85,12 @@ export async function convertFile(bytes: Uint8Array, fileName: string, opts: Par
     minutes: article.minutes,
     size: bytes.length,
     pages: parsed.pages,
+    ...(parsed.scanned && { scanned: parsed.scanned }),
     addedAt: now,
     openedAt: now,
     progress: 0,
   };
-  return { record, article };
+  return { record, article, file: hasFigures ? parsed.file : undefined };
 }
 
 function toArticle(parsed: ParsedDocument, key: string, fileName: string): Article {
@@ -149,7 +154,7 @@ export async function saveDocument(doc: OpenedDocument): Promise<DocumentRecord>
   const tx = d.transaction(['documents', 'documentContent'], 'readwrite');
   await Promise.all([
     tx.objectStore('documents').put(record),
-    tx.objectStore('documentContent').put({ key: record.key, html: serialize(doc.article.content) }),
+    tx.objectStore('documentContent').put({ key: record.key, html: serialize(doc.article.content), ...(doc.file && { file: doc.file }) }),
     tx.done,
   ]);
   return record;
@@ -178,7 +183,7 @@ export async function loadDocument(key: string): Promise<OpenedDocument | null> 
     content: sanitizeToFragment(content.html),
     kind: record.kind,
   });
-  return { record, article };
+  return { record, article, file: content.file };
 }
 
 export async function saveProgress(key: string, progress: number): Promise<void> {
