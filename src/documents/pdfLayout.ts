@@ -472,8 +472,10 @@ function toBlocks(pages: Item[][], body: number, bullets: Set<Line>): Block[] {
         }
       }
 
-      const isHeading = line.size >= body * 1.18 && line.text.length < 180;
-      const tag = isHeading ? (line.size >= body * 1.6 ? 'h2' : 'h3') : 'p';
+      // Word's Heading 1 and 2 are about 1.45 and 1.18 times the body size; web pages printed to
+      // PDF use similar steps (17 and 13.5 over 11.5).
+      const isHeading = line.size >= body * 1.15 && line.text.length < 180;
+      const tag = isHeading ? (line.size >= body * 1.4 ? 'h2' : 'h3') : 'p';
       let startNew = true;
       if (cur?.kind === 'text' && cur.tag !== 'note' && prev) {
         if (tag !== 'p' || cur.tag !== 'p') {
@@ -671,7 +673,7 @@ export function layoutPages(pages: PageText[]): LayoutResult {
     }
 
     const regions: { region: Region; box: Box }[] = [];
-    const { tables, rest: afterTables } = findRuledTables(g.rules, runs, p);
+    const { tables, rest: afterTables } = findRuledTables(g.rules, runs, p, g.shapes);
     const { figures, rest } = findFigures(g, afterTables, view, tables.map((t) => t.box), p);
     let lines = toLines(rest, p);
 

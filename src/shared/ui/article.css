@@ -59,9 +59,25 @@
   color: var(--mw-text-strong);
   text-wrap: balance;
 }
-.mw-article:is([lang|='ar']) .mw-article__title {
+.mw-article:is([lang|='ar'], [dir='rtl']) .mw-article__title {
   line-height: 1.45;
   letter-spacing: 0;
+}
+
+/* Arabic needs more room between lines than Latin wherever it appears: paragraphs in a Latin
+   document (each resolves its own direction with dir="auto"), and headings and table cells,
+   whose tighter line heights would otherwise make diacritics touch the line above. */
+.mw-article__body :is(p, li, blockquote, dd, figcaption):dir(rtl) {
+  line-height: calc(var(--mr-lh, 1.65) + 0.2);
+  hyphens: manual;
+  letter-spacing: 0;
+}
+.mw-article__body :is(h1, h2, h3, h4, h5, h6):is(:dir(rtl), :lang(ar)) {
+  line-height: 1.55;
+  letter-spacing: 0;
+}
+.mw-article__body :is(th, td):is(:dir(rtl), :lang(ar)) {
+  line-height: 1.75;
 }
 .mw-article__byline {
   margin: 0 0 6px;
