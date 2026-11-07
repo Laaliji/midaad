@@ -12,6 +12,8 @@ export interface LayerProps {
   state: LayerState;
   highlight: Highlight | undefined;
   defaultColor: HighlightColor;
+  /** What the toolbar acts on: selected text, or a box drawn on a picture. */
+  mode: 'text' | 'area';
   onHighlight: (color: HighlightColor) => void;
   onHighlightWithNote: () => void;
   onAction: (id: string) => void;
@@ -120,7 +122,7 @@ function Floating({ rects, children }: { rects: () => DOMRectList | DOMRect[]; c
 
 /* ------------------------------------------------------------------ selection toolbar */
 
-function Toolbar({ defaultColor, onHighlight, onHighlightWithNote, onAction, onClose }: LayerProps) {
+function Toolbar({ defaultColor, mode, onHighlight, onHighlightWithNote, onAction, onClose }: LayerProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   // Arrow keys move between buttons (WAI-ARIA toolbar pattern).
@@ -140,7 +142,7 @@ function Toolbar({ defaultColor, onHighlight, onHighlightWithNote, onAction, onC
   }
 
   return (
-    <div class="mh-toolbar" role="toolbar" aria-label="Highlight selection" ref={ref} onPointerDown={keepSelection} onMouseDown={keepSelection} onKeyDown={onKeyDown}>
+    <div class="mh-toolbar" role="toolbar" aria-label={mode === 'area' ? 'Highlight this area' : 'Highlight selection'} ref={ref} onPointerDown={keepSelection} onMouseDown={keepSelection} onKeyDown={onKeyDown}>
       <div class="mh-swatches">
         {HIGHLIGHT_COLORS.map((c) => (
           <button
@@ -156,7 +158,7 @@ function Toolbar({ defaultColor, onHighlight, onHighlightWithNote, onAction, onC
       </div>
       <span class="mh-sep" aria-hidden="true" />
       <IconButton label="Highlight and add a note" icon={ICONS.note} onClick={onHighlightWithNote} />
-      {selectionActions.map((a) => (
+      {mode === 'text' && selectionActions.map((a) => (
         <IconButton key={a.id} label={a.label} icon={a.icon} onClick={() => onAction(a.id)} />
       ))}
     </div>
@@ -226,7 +228,7 @@ function Popover({
   const date = new Date(highlight.createdAt).toLocaleDateString(undefined, { dateStyle: 'medium' });
 
   return (
-    <div class="mh-popover" role="dialog" aria-label="Highlight" tabIndex={-1} ref={ref} onKeyDown={onKeyDown}>
+    <div class="mh-popover" role="dialog" aria-label={highlight.area ? `Highlight on page ${highlight.area.page}` : 'Highlight'} tabIndex={-1} ref={ref} onKeyDown={onKeyDown}>
       <div class="mh-popover__row" onPointerDown={keepSelection} onMouseDown={keepSelection}>
         <div class="mh-swatches" role="group" aria-label="Colour">
           {HIGHLIGHT_COLORS.map((c) => (
@@ -250,7 +252,7 @@ function Popover({
         </div>
         <span class="mh-grow" />
         {!editing && <IconButton label="Add a note" icon={ICONS.note} onClick={() => { setEditing(true); requestAnimationFrame(() => textRef.current?.focus()); }} />}
-        <IconButton label="Copy text" icon={ICONS.copy} onClick={() => onCopy(highlight.id)} />
+        {!highlight.area && <IconButton label="Copy text" icon={ICONS.copy} onClick={() => onCopy(highlight.id)} />}
         <IconButton label="Remove highlight" icon={ICONS.trash} danger onClick={() => onDelete(highlight.id)} />
       </div>
 

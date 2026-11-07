@@ -4,7 +4,7 @@
  * at once and rolls back with a message if the background can't save.
  */
 import { sendToBackground } from '../../shared/messages';
-import { newId, type Highlight, type HighlightPatch, type PageMeta, type TextQuote, type HighlightColor } from '../../shared/highlights';
+import { newId, type Highlight, type HighlightArea, type HighlightPatch, type PageMeta, type TextQuote, type HighlightColor } from '../../shared/highlights';
 import { showToast } from '../ui/toast';
 
 type Listener = (items: readonly Highlight[]) => void;
@@ -16,6 +16,7 @@ export interface Draft {
   text: string;
   color: HighlightColor;
   note?: string;
+  area?: HighlightArea;
 }
 
 export class HighlightStore {
@@ -59,6 +60,7 @@ export class HighlightStore {
       text: draft.text,
       color: draft.color,
       note: draft.note ?? '',
+      ...(draft.area && { area: draft.area }),
       createdAt: now,
       updatedAt: now,
     };

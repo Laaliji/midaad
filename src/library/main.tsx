@@ -113,10 +113,10 @@ async function openStored(key: string) {
 }
 
 const SCANNED_NOTICE = {
-  some: 'Some pages of this PDF are scans. They’re shown as pictures, so their text can’t be highlighted.',
-  all: 'This PDF is made of scanned pages, shown as pictures. To read and highlight a page’s text, open “Text recognized on this page” under its picture.',
+  some: 'Some pages of this PDF are scans, shown as pictures. To highlight part of one, drag a box over it.',
+  all: 'This PDF is made of scanned pages, shown as pictures. To highlight part of a page, drag a box over it. Its recognized text is under each picture, in “Text recognized on this page”.',
   textless:
-    'This PDF is made of scanned pages, shown as pictures. There’s no text to select, so highlights and notes are turned off for it. To read and highlight the text, run the file through OCR (for example OCRmyPDF, or “Make searchable” in Acrobat), then open the result.',
+    'This PDF is made of scanned pages, shown as pictures. To highlight part of a page, drag a box over it, then pick a colour or add a note. To search or copy the text, run the file through OCR (for example OCRmyPDF, or “Make searchable” in Acrobat), then open the result.',
 };
 
 function scannedNotice(record: DocumentRecord): string | undefined {
