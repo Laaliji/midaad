@@ -41,6 +41,11 @@ export interface DocumentContent {
   file?: Uint8Array;
 }
 
+/** A PDF made only of scanned pages with no recognized text: nothing to select, highlight or note. */
+export function isTextless(record: Pick<DocumentRecord, 'scanned' | 'words'>): boolean {
+  return record.scanned === 'all' && record.words === 0;
+}
+
 export const DOC_PREFIX = 'doc:';
 
 export function isDocumentKey(url: string): boolean {

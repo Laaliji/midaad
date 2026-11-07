@@ -23,6 +23,8 @@ interface Props {
   onProgress?: (progress: number) => void;
   /** A short note shown under the title. */
   notice?: string;
+  /** Only pictures of scanned pages: reading time and word count mean nothing. */
+  textless?: boolean;
 }
 
 interface TocEntry {
@@ -45,6 +47,7 @@ export function ReaderApp({
   initialProgress = 0,
   onProgress,
   notice,
+  textless,
 }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -278,11 +281,13 @@ export function ReaderApp({
               <p class="mw-article__kicker">{article.siteName}</p>
               <h1 class="mw-article__title">{article.title}</h1>
               {article.byline && <p class="mw-article__byline">{article.byline}</p>}
-              <p class="mw-article__meta">
-                <span>{labels.readingTime(article.minutes)}</span>
-                <span>{labels.words(article.words)}</span>
-                {published && <span>{published}</span>}
-              </p>
+              {(!textless || published) && (
+                <p class="mw-article__meta">
+                  {!textless && <span>{labels.readingTime(article.minutes)}</span>}
+                  {!textless && <span>{labels.words(article.words)}</span>}
+                  {published && <span>{published}</span>}
+                </p>
+              )}
               {notice && (
                 <p class="mw-article__notice" role="note">
                   {notice}
