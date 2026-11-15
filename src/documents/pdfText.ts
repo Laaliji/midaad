@@ -68,6 +68,22 @@ export function strength(s: string): { rtl: number; ltr: number } {
   return { rtl, ltr };
 }
 
+/**
+ * Letters that set a line's direction. Digits don't (they're weak in the Unicode bidi rules), so
+ * "43.5% (35.7% سنة 2014)" is a right-to-left line even though most of its characters are digits.
+ */
+export function letterDirection(s: string): { rtl: number; ltr: number } {
+  let rtl = 0;
+  let ltr = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (isDigit(c)) continue;
+    if (isRtlChar(c)) rtl++;
+    else if (isLatinLetter(c)) ltr++;
+  }
+  return { rtl, ltr };
+}
+
 /** Arabic diacritics (harakat, tanwin, shadda, superscript alef, Quranic marks). */
 export const isMark = (c: number) => (c >= 0x064b && c <= 0x065f) || c === 0x0670 || (c >= 0x06d6 && c <= 0x06ed) || (c >= 0xfe70 && c <= 0xfe7e && c % 2 === 0);
 const onlyMarks = (s: string) => s.trim().length > 0 && [...s].every((ch) => isMark(ch.charCodeAt(0)) || ch === ' ');
@@ -204,14 +220,45 @@ export function bracketsReversed(texts: string[]): boolean {
 /* ------------------------------------------------------------------ right-to-left lines */
 
 const kindOf = (s: string) => {
-  const k = strength(s);
-  return k.rtl ? 'rtl' : k.ltr ? 'ltr' : 'neutral';
+  const k = letterDirection(s);
+  if (k.rtl) return 'rtl';
+  if (k.ltr) return 'ltr';
+  return strength(s).ltr ? 'num' : 'neutral';
 };
+
+/**
+ * A piece of digits and punctuation split into numbers and what separates them, as the Unicode
+ * bidi rules see it: a % or currency sign belongs to its number, and so does a single , . / : + -
+ * between two digits; anything else (a dash, a space, a bracket) stands between numbers. In Arabic
+ * text the numbers of "56,000–54,000" are read right to left, so the piece must be turned around.
+ */
+export function numberIslands(s: string): string[] {
+  const chars = [...s];
+  const digit = (ch: string | undefined) => ch !== undefined && isDigit(ch.charCodeAt(0));
+  const sign = (ch: string) => '%‰$€£#°'.includes(ch);
+  const joiner = (ch: string) => ',./:+-'.includes(ch);
+  const parts: string[] = [];
+  let cur = '';
+  let numeric: boolean | null = null;
+  chars.forEach((ch, i) => {
+    const inNumber = digit(ch) || sign(ch) || (joiner(ch) && digit(chars[i - 1]) && digit(chars[i + 1]));
+    if (numeric !== null && inNumber !== numeric) {
+      parts.push(cur);
+      cur = '';
+    }
+    cur += ch;
+    numeric = inNumber;
+  });
+  if (cur) parts.push(cur);
+  return parts;
+}
 
 /**
  * Many PDFs store right-to-left lines in visual order: pieces from left to right. Reading order
  * is right to left, except runs of Latin words and numbers inside the line, which keep their order.
  * Pieces with only punctuation are in visual order too, so their characters are reversed.
+ * As in the Unicode bidi rules, numbers join a left-to-right stretch only after a Latin word: in
+ * Arabic text, "43.5% (35.7%" is two numbers with a bracket between them, read right to left.
  */
 function logicalOrder(visual: TextRun[]): TextRun[] {
   const rev = [...visual].reverse();
@@ -219,7 +266,21 @@ function logicalOrder(visual: TextRun[]): TextRun[] {
   const out: TextRun[] = [];
   let i = 0;
   while (i < rev.length) {
-    if (kind[i] !== 'ltr') {
+    if (kind[i] === 'num') {
+      // A number joins the Latin words it runs into; between Arabic words it stands alone.
+      let j = i;
+      while (j + 1 < rev.length && (kind[j + 1] === 'neutral' || kind[j + 1] === 'num')) j++;
+      if (kind[j + 1] !== 'ltr') {
+        const r = rev[i]!;
+        // Numbers keep their digits' order; what lies between them is in visual order, like any
+        // punctuation piece, so its characters turn around too.
+        const parts = numberIslands(r.str).map((part) => (isDigit(part.charCodeAt(0)) || isDigit(part.charCodeAt(part.length - 1)) ? part : [...part].reverse().join('')));
+        out.push(parts.length > 1 ? { ...r, str: parts.reverse().join('') } : r);
+        i++;
+        continue;
+      }
+    }
+    if (kind[i] !== 'ltr' && kind[i] !== 'num') {
       const r = rev[i]!;
       out.push(kind[i] === 'neutral' && r.str.length > 1 ? { ...r, str: [...r.str].reverse().join('') } : r);
       i++;
@@ -230,7 +291,7 @@ function logicalOrder(visual: TextRun[]): TextRun[] {
     let lastLtr = i;
     while (j + 1 < rev.length && kind[j + 1] !== 'rtl') {
       j++;
-      if (kind[j] === 'ltr') lastLtr = j;
+      if (kind[j] === 'ltr' || kind[j] === 'num') lastLtr = j;
     }
     out.push(...rev.slice(i, lastLtr + 1).reverse());
     i = lastLtr + 1;
@@ -336,7 +397,7 @@ const runFlags = (r: TextRun) => (r.bold ? BOLD : 0) | (r.italic ? ITALIC : 0) |
 export function lineFromRuns(runs: TextRun[], page: number): Line | null {
   const total = runs.reduce(
     (acc, r) => {
-      const s = strength(r.str);
+      const s = letterDirection(r.str);
       return { rtl: acc.rtl + s.rtl, ltr: acc.ltr + s.ltr };
     },
     { rtl: 0, ltr: 0 },
@@ -366,7 +427,8 @@ export function lineFromRuns(runs: TextRun[], page: number): Line | null {
       // Distance between the two pieces, whichever side the next one is on.
       const gap = Math.min(Math.abs(r.x - (prev.x + prev.width)), Math.abs(prev.x - (r.x + r.width)));
       const last = t.chars[t.chars.length - 1];
-      if (gap > Math.max(prev.size, r.size) * 0.12 && last !== ' ' && !r.str.startsWith(' ')) push(t, ' ', runFlags(prev) & runFlags(r));
+      // Arabic letters like ك overhang the space before them, so right-to-left word gaps look narrower.
+      if (gap > Math.max(prev.size, r.size) * (rtl ? 0.08 : 0.12) && last !== ' ' && !r.str.startsWith(' ')) push(t, ' ', runFlags(prev) & runFlags(r));
     }
     push(t, normalizeForms(r.str), runFlags(r) | (isSup(r) ? SUP : 0));
   });
